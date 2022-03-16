@@ -23,7 +23,7 @@ except:
 warnings.filterwarnings('ignore')
 
 
-base_path = "../data/data/"
+base_path = "data/"
 
 
 class Motion_refiner():
