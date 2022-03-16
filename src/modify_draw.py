@@ -18,10 +18,10 @@ import math
 
 import argparse
 
-from motion_refiner.traj_utils import *
-from motion_refiner.src.simple_TF_continuos import *
-from motion_refiner.src.motion_refiner import Motion_refiner
-from motion_refiner.src.functions import *
+from traj_utils import *
+from simple_TF_continuos import *
+from motion_refiner import Motion_refiner
+from functions import *
 
 
 parser = argparse.ArgumentParser(description='collect traj draw.')
@@ -31,17 +31,10 @@ parser.add_argument('--img_file', type=str, default="/home/gari/ros_ws/src/motio
 
 args = parser.parse_args()
 
-
-# user_file = "/home/gari/ros_ws/src/motion_refiner/user_trajs/drawing-" + \
-#     args.name+"_"+str(args.trial)
-
 original_traj = np.load(
     "/home/gari/ros_ws/src/motion_refiner/original_traj.npy")
 
 base_path = "/home/gari/ros_ws/src/motion_refiner/user_trajs/"
-# print(original_traj)
-
-# (x0, y0) = original_traj[1, 0], original_traj[1, 1]
 
 
 class Drawing_interface():

@@ -24,10 +24,10 @@ import numpy as np
 import json
 
 
-from motion_refiner.traj_utils import *
-from motion_refiner.src.simple_TF_continuos import *
-from motion_refiner.src.motion_refiner import Motion_refiner
-from motion_refiner.src.functions import *
+from traj_utils import *
+from simple_TF_continuos import *
+from motion_refiner import Motion_refiner
+from functions import *
 
 
 import os
