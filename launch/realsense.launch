@@ -1,0 +1,49 @@
+
+<launch>
+    <arg name="record_cameras" default="true" />
+    <arg name="name" default="user" />
+    <arg name="trial" default="1" />
+
+
+    <!-- <group if="$(arg record_cameras)">
+
+        <include file="$(find realsense2_camera)/launch/rs_camera.launch">
+            <arg name="color_width" value="848" />
+            <arg name="color_height" value="480" />
+            <arg name="color_fps" value="60" />
+            <arg name="enable_depth" value="false" />
+            <arg name="publish_tf" value="false" />
+            <arg name="publish_odom_tf" value="false" />
+            <arg name="camera" value="camera" />
+            <arg name="serial_no" value="943222072036" />
+
+
+        </include>
+        <include file="$(find realsense2_camera)/launch/rs_camera.launch">
+            <arg name="color_width" value="848" />
+            <arg name="color_height" value="480" />
+            <arg name="color_fps" value="60" />
+            <arg name="enable_depth" value="false" />
+            <arg name="publish_tf" value="false" />
+            <arg name="publish_odom_tf" value="false" />
+            <arg name="camera" value="camera_top" />
+            <arg name="serial_no" value="934222072657" />
+            
+        </include>
+    </group> -->
+
+    <!-- <node name="path_recorder_controller" pkg="my_controller" type="path_recorder_controller" output="screen" args=" 192.168.3.122 $(find motion_refiner)/user_trajs/kinestetic/$(arg name)_$(arg trial).txt"/> -->
+    <!-- <node name="path_recorder_controller" pkg="my_controller" type="path_recorder_controller" output="screen" args=" 192.168.3.122 /home/gari/ros_ws/src/motion_refiner/user_trajs/test.txt"/> -->
+
+
+    <!-- <node pkg="rosbag" type="record" name="rosbag_record_cam"
+        args="record -a -o $(find motion_refiner)/bags/kinestetic/$(arg name)_$(arg trial)"
+        if="$(arg record_cameras)" />
+
+
+     -->
+    <node pkg="rosbag" type="record" name="rosbag_record_cam"
+       args="record -o $(find motion_refiner)/bags/traj_img /cv_detection/image_traj"/>
+  
+
+</launch>

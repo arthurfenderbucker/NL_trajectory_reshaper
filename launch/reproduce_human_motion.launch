@@ -1,0 +1,18 @@
+
+<launch>
+    <arg name="name" default="user" />
+    <arg name="trial" default="1" />
+
+
+    <node name="reproduce_user_traj" pkg="my_controller" type="reproduce_user_traj" output="screen">
+        <param name="file_path" value="$(find motion_refiner)/user_trajs/kinestetic/$(arg name)_$(arg trial).txt" />
+        
+    </node>
+    <!-- <node name="path_recorder_controller" pkg="my_controller" type="path_recorder_controller" output="screen" args=" 192.168.3.122 /home/gari/ros_ws/src/motion_refiner/user_trajs/test.txt"/> -->
+
+    
+    <!-- <node pkg="rosbag" type="record" name="rosbag_record_cam"
+       args="record -o /tmp/hrp2-cameras /camera_top/color/image_raw  /camera/color/image_raw "/> -->
+  
+
+</launch>

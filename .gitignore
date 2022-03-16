@@ -1,0 +1,7 @@
+kdenlive_projects/
+media/
+bags/
+user_trajs/
+src/motion_refiner
+__pycache__/
+*.pyc
