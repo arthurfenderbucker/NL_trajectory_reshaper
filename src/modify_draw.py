@@ -12,6 +12,7 @@ from cv_bridge import CvBridge, CvBridgeError
 from sensor_msgs.msg import Image
 
 import rospy
+
 from geometry_msgs.msg import PoseStamped
 import os
 import math
@@ -23,19 +24,44 @@ from simple_TF_continuos import *
 from motion_refiner import Motion_refiner
 from functions import *
 
+import rospkg
+rospack = rospkg.RosPack()
+pkg_path = rospack.get_path('NL_trajectory_reshaper')
+
 
 parser = argparse.ArgumentParser(description='collect traj draw.')
+parser.add_argument('--ros', type=bool, default=False)
+
 parser.add_argument('--name', type=str, default="user")
 parser.add_argument('--trial', type=int, default=1)
-parser.add_argument('--img_file', type=str, default="/home/gari/ros_ws/src/motion_refiner/top_view.png")
+parser.add_argument('--img_file', type=str, default=pkg_path+"/docs/media/top_view.png")
+parser.add_argument('--original_traj', type=str, default=pkg_path+"/original_traj.npy")
+
+parser.add_argument('--model_path', type=str, default=pkg_path+"/models/")
+parser.add_argument('--model_name', type=str, default="refined_refined_TF&num_layers_enc:2&num_layers_dec:4&d_model:256&dff:512&num_heads:8&dropout_rate:0.1&wp_d:2&bs:64&dense_n:512&num_dense:3&concat_emb:True&features_n:777&optimizer:RMSprop&norm_layer:True&activation:tanh.h5")
+
+
+parser.add_argument('--user_trajs_path', type=str, default=pkg_path+"/user_trajs/")
+parser.add_argument('--live_image', type=bool, default=False)
+parser.add_argument('--image_topic', type=str, default="/camera_top/color/image_raw")
+
+parser.add_argument('--chomp_trajs_path', type=str, default=pkg_path+"/chomp_trajs/")
+
 
 args = parser.parse_args()
 
-original_traj = np.load(
-    "/home/gari/ros_ws/src/motion_refiner/original_traj.npy")
 
-base_path = "/home/gari/ros_ws/src/motion_refiner/user_trajs/"
 
+ros_enable = args.ros
+print("ros_enable",ros_enable)
+chomp_trajs_path = args.chomp_trajs_path
+model_path = args.model_path
+model_name = args.model_name
+model_file = model_path + model_name
+
+original_traj = np.load(args.original_traj)
+
+base_path = args.user_trajs_path
 
 class Drawing_interface():
     def __init__(self, user_name="user", img_file=args.img_file):
@@ -133,17 +159,17 @@ class Drawing_interface():
                 #               thickness=-1)
 
                 if not self.draw_new_traj:
-                    cv2.circle(self.img, (x, y), 2, self.traj_color, -1)
-                    if len(self.points) > 0:
-                        cv2.line(self.img, (self.points[-1][0], self.points[-1][1]),
-                                 (x, y), self.traj_color, 3)
+                    # cv2.circle(self.img, (x, y), 2, self.traj_color, -1)
+                    # if len(self.points) > 0:
+                    #     cv2.line(self.img, (self.points[-1][0], self.points[-1][1]),
+                    #              (x, y), self.traj_color, 3)
                     self.points.append([x, y])
                 else:
 
-                    cv2.circle(self.img, (x, y), 2, self.new_traj_color, -1)
-                    if len(self.points) > 0:
-                        cv2.line(self.img, (self.points[-1][0], self.points[-1][1]),
-                                 (x, y), self.new_traj_color, 3)
+                    # cv2.circle(self.img, (x, y), 2, self.new_traj_color, -1)
+                    # if len(self.points) > 0:
+                    #     cv2.line(self.img, (self.points[-1][0], self.points[-1][1]),
+                    #              (x, y), self.new_traj_color, 3)
                     self.new_traj.append([x, y])
 
         elif event == cv2.EVENT_LBUTTONUP:
@@ -247,41 +273,26 @@ def apply_interaction(mr, traj, obj_poses_, text, obj_names, n_obj=3):
     if isinstance(obj_poses_, list):
         obj_poses = np.array(obj_poses_)
 
-    # if obj_poses.shape[0]!=n_obj:
-
     traj_raw = traj_np[::mod, :2]
     t0 = traj_raw[0, :]
     tf = traj_raw[-1, :]
 
-    # vprint("traj_raw:", limits(traj_raw))
-
     traj_raw_n, obj_poses_new = interpolate_2points(
         traj_raw, p1, p2, objs=obj_poses.T)
 
-    # vprint(limits(traj_raw_n))
-    # print(obj_poses.T)
-
     d = np2data(traj_raw_n, obj_names,
                 obj_poses_new.T, text, output_traj=None)
-    # vprint(d)
-    X, _ = mr.prepare_data(d, label=False)
-    # vprint(limits(X))
-
+    # X, _ = mr.prepare_data(d, label=False)
+    
     pred, traj_in = mr.apply_interaction(
         model, d[0], text,  label=False)
-    # vprint(pred.shape)
-    # vprint(limits(pred))
 
     print(pred)
     print(pred.shape)
     print(t0, tf)
 
-    # cnt = np.ones([traj_in.shape[0]])*0.10
-    # pred_cnt = mr.follow_hard_constraints(
-    #     traj_in, pred[0, :, :], cnt)
     new_traj_simple = interpolate_2points(pred[0, :, :], t0, tf)
 
-    # x, y = interpolate_traj(new_traj_simple, n=1000)
     new_traj_wp = fit_wps_to_traj(new_traj_simple, traj_raw)
 
     constraints = np.ones([traj_raw.shape[0]])*0.15
@@ -292,14 +303,8 @@ def apply_interaction(mr, traj, obj_poses_, text, obj_names, n_obj=3):
     new_traj_wp_scaled = mr.addapt_to_hard_constraints(
         traj_raw, new_traj_wp, constraints)
 
-    # pred_t = np.transpose(pred[:, :, :2], [0, 2, 1])
-    # pred_d = pred_t.reshape([pred_t.shape[0], pred_t.shape[2]*2])
-
-    # show_data(d, pred=pred_d, abs_pred=True, block=False,
-    #           show_label=False, new_fig=True,  show_interpolated=True, show_original=False)
-    # plt.pause(.001)
-
     return new_traj_wp, pred[0, :, :], obj_poses_new.T
+
 
 
 def modify_traj(mr, di):
@@ -311,16 +316,39 @@ def modify_traj(mr, di):
     di.simple_traj = simple_traj.tolist()
     di.simple_obj_poses = simple_obj_poses.tolist()
 
+def print_help():
 
-rospy.init_node('draw_interface', anonymous=True)
+
+    print("""\n\n\n-------------------keyboard commands------------------------
+    MOST USED:
+    esc: exit
+    o: load original trajectory (red)
+    m: modify original trajectory using NL
+    u: update trajectory (set new trajectory = to original traj)
+    i: input new text
+    1,2,3: change position of the objects (clicking)
+    n: start drawing a new trajectory (green)
+    d: reset all trajectories
+    t: disable placement of objects
+    
+    ROS related
+    l: publish new trajectory (green)
+    p: publish original trajectory
+    
+    for teh user study:
+    a: set username and trial number
+    w: load chomp trajectory from user and trial
+    q: save interaction trajectory
+    y: set interaction type to NL
+    x: set interaction type to drawing
+    s: save original trajectory for the chomp
+    \n-----------------------------------------------------------""")
+
+if ros_enable:
+    rospy.init_node('draw_interface', anonymous=True)
 traj_pub = rospy.Publisher("/simple_traj", Path)
 objs_pub = rospy.Publisher("/obj_poses", Path)
 
-
-# model = load_model(
-#     "/home/gari/data/models/exp_norm_layer_tanh_warmup/TF&num_layers_enc:2&num_layers_dec:4&d_model:256&dff:512&num_heads:8&dropout_rate:0.1&wp_d:2&bs:64&dense_n:512&num_dense:3&concat_emb:True&features_n:777&optimizer:adam&norm_layer:True&activation:tanh.h5")
-model_path = "/home/gari/data/models/exp_optmizer_depth/"
-model_name = "refined_refined_TF&num_layers_enc:2&num_layers_dec:4&d_model:256&dff:512&num_heads:8&dropout_rate:0.1&wp_d:2&bs:64&dense_n:512&num_dense:3&concat_emb:True&features_n:777&optimizer:RMSprop&norm_layer:True&activation:tanh.h5"
 model_file = model_path + model_name
 
 load_models = True
@@ -333,10 +361,11 @@ mr = Motion_refiner(load_models=load_models)
 di = Drawing_interface()
 di.set_text("stay further away from the glasses")
 
-
 bridge = CvBridge()
-live_image = True
-image_topic = "/camera_top/color/image_raw"
+live_image = args.live_image
+image_topic = args.image_topic
+
+print_help()
 
 while not rospy.is_shutdown():
 
@@ -351,6 +380,8 @@ while not rospy.is_shutdown():
         if not (cols > 60 and rows > 60):  # returns if data have unvalid shape
             continue
         di.set_image(cv_image)
+    else:
+        di.redraw()
     di.show()
 
     h_, w_ = di.img.shape[:2]
@@ -368,8 +399,7 @@ while not rospy.is_shutdown():
 
     elif k == ord("w"):
         di.interaction_type = "chomp"
-        file_path = os.path.join(
-            "/home/gari/data/data/user_exp/modified/", di.user_name+".json")
+        file_path = os.path.join(chomp_trajs_path+"modified/", di.user_name+".json")
         print("\nloading: ", file_path)
         di.placing_objs = False
         di.draw_new_traj = True
@@ -463,7 +493,7 @@ while not rospy.is_shutdown():
         print(w/h)
         print(max(ox), max(oy))
 
-        data_path = "/home/gari/data/data/user_exp/0/"
+        data_path = os.path.join(chomp_trajs_path,"0/")
         f = os.path.join(data_path, "META.json")
         with open(f, 'w') as fp:
 
@@ -481,6 +511,10 @@ while not rospy.is_shutdown():
     elif k >= ord("1") and k <= ord("3"):
         di.obj_i = k-ord("1")
         di.placing_objs = True
+    
+    elif k == ord("h"): #help
+        print_help()
+
     # if k != -1:
     #     print(k)
 # np.save(user_file+".npy", np.array(points))

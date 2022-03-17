@@ -200,10 +200,18 @@ class Motion_refiner():
         return data
 
     def interpolate_traj(self, traj, n=None, interpolation="spline"):
-        # interpolates the traj
+        """interpolates the traj for n waypoints"""
         if n is None:
             n = self.traj_n
-        tck_i, u_i = interpolate.splprep(traj, s=0.0)
+        print(traj.shape)        
+        xp, yp = traj[0,:], traj[1,:]
+
+        #removes duplicated wp
+        okay = np.where(np.abs(np.diff(xp)) + np.abs(np.diff(yp)) > 0)
+        xp = np.r_[xp[okay], xp[-1]]
+        yp = np.r_[yp[okay], yp[-1]]
+
+        tck_i, u_i = interpolate.splprep([xp, yp], s=0.0)
         x_i, y_i = interpolate.splev(np.linspace(0, 1, n), tck_i)
         return x_i, y_i
 
@@ -340,18 +348,28 @@ class Motion_refiner():
 
 
 if __name__ == '__main__':
-
-    n = 5
+    
+    phi = np.linspace(0, 2.*np.pi, 40)
+    r = 0.5 + np.cos(phi)         # polar coords
+    x, y = r * np.cos(phi), r * np.sin(phi)   # convert to cartesian   # tck, u = splprep([x, y], s=0)
+    
+    
+    
+    n = 10
     tx = np.arange(n) + np.random.random([n])
     ty = np.arange(n)**2 + np.random.random([n])
     traj = np.concatenate(
         [tx[:, np.newaxis], ty[:, np.newaxis]], axis=1) * -0.1-0.5
+    
+
 
     plt.plot(traj[:, 0], traj[:, 1])
 
     ni = 4
+    print(traj.shape)
     # interpolates the traj
-    tck_i, u_i = interpolate.splprep(traj, s=0.0)
+    # tck_i, u_i = interpolate.splprep(traj[:, 0], traj[:, 1])
+    tck_i, u_i = interpolate.splprep([traj[:, 0], traj[:, 1]], s=0.0)
     print(tck_i)
     x_i, y_i = interpolate.splev(np.linspace(0, 1, ni), tck_i)
     plt.plot(x_i, y_i)
