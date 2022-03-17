@@ -1,0 +1,63 @@
+Kinestetic:
+show traj:
+	roscore
+	mon launch panda_config bringup_panda_with_motion_refiner.launch robot_ip:=192.168.3.122
+	rosrun my_controller full_traj
+
+record traj:
+	rosrun my_controller bring_bottle_up
+!!! KILL bringup_panda_with_motion_refiner !!!
+	roslaunch motion_refiner record_human_motion.launch name:=user trial:=1
+
+show traj:
+	mon launch panda_config bringup_panda_with_motion_refiner.launch robot_ip:=192.168.3.122	
+	roslaunch motion_refiner reproduce_human_motion.launch name:=user trial:=1
+
+
+
+NL command:
+new terminal
+	condaenv
+	cv_ros
+	rosrun motion_refiner traj_recorder.py
+
+new terminal (cv interface)
+	condaenv
+	cv_ros
+	source /home/gari/cvbridge_build_ws/install/setup.bash --extend
+	python modify_draw.py
+	press o to load the base traj
+	press y to set the interaction to NL
+	press a to register the user
+	press i and type on the terminal the new interaction
+	press m to modify it with the motion refiner
+	press p to upload to the planner
+	press q to save interaction
+
+new terminal (execute trigger)
+	rostopic pub /execute_new_traj std_msgs/Empty "{}"
+	rosrun my_controller come_back
+
+
+
+Drwing interaction
+	(cv interface) press n and draw the new trajectory
+	press l to upload it
+	press x to set the interaction to NL
+	press q to save the interaction
+	(execute trigger)rostopic pub /execute_new_traj std_msgs/Empty "{}"
+
+
+
+
+
+
+
+
+
+
+
+
+victor kowalski martins 
+
+
