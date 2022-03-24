@@ -9,6 +9,14 @@
 
 [read more...]()
 
+
+## IROS video
+
+<video width="100%" controls>
+  <source src="media/IROS2022_video.mp4" type="video/mp4">
+</video>
+
+
 ---
 
 **Authors**
