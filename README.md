@@ -1,11 +1,12 @@
+> **IMPORTANT:** :exclamation:repo under maintenance:exclamation:
 
-repo under maintenance:exclamation:
 # NL trajectory reshaper
 
 Reshaping Robot Trajectories Using Natural Language Commands: A Study of Multi-Modal Data Alignment Using Transformers
 
 
 ![iterative NL interactions over a trajectory](./docs/media/interactions.gif)
+
 _example of multiple iterative interactions over the initial erroneous
 trajectory (red)_
 
