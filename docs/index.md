@@ -1,37 +1,19 @@
-## Welcome to GitHub Pages
 
-You can use the [editor on GitHub](https://github.com/arthurfenderbucker/NL_trajectory_reshaper/edit/gh-pages/index.md) to maintain and preview the content for your website in Markdown files.
+## NL trajectory reshaper
 
-Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
 
-### Markdown
+![iterative NL interactions over a trajectory](/docs/media/interactions.gif)
 
-Markdown is a lightweight and easy-to-use syntax for styling your writing. It includes conventions for
+ 
+<div style="text-align: justify"><b>Abstract —</b> Natural language is the most intuitive medium for us to interact with other people when expressing commands and instructions. However, using language is seldom an easy task when humans need to express their intent towards robots, since most of the current language interfaces require rigid templates with a static set of action targets and commands. In this work, we provide a flexible language-based interface for human-robot collaboration, which allows a user to reshape existing trajectories for an autonomous agent. We take advantage of recent advancements in the field of large language models (BERT and CLIP) to encode the user command, and then combine these features with trajectory information using multi-modal attention transformers. We train the model using imitation learning over a dataset containing robot trajectories modified by language commands, and treat the trajectory generation process as a sequence prediction problem, analogously to how language generation architectures operate. We evaluate the system in multiple simulated trajectory scenarios, and show a significant performance increase of our model over baseline approaches. In addition, our real-world experiments with a robot arm show that users significantly prefer our natural language interface over traditional methods such as kinesthetic teaching or cost-function programming. Our study shows how the field of robotics can take advantage of large pre-trained language models towards creating more intuitive interfaces between for robots and machines.</div>
 
-```markdown
-Syntax highlighted code block
 
-# Header 1
-## Header 2
-### Header 3
+[read more...]()
 
-- Bulleted
-- List
+---
 
-1. Numbered
-2. List
+**Authors**
 
-**Bold** and _Italic_ and `Code` text
+[Arthur Bucker](https://scholar.google.de/citations?user=8cEgwaEAAAAJ)¹ , [Luis Figueredo](https://scholar.google.de/citations?user=ppZN58sAAAAJ)¹, [Sami Haddadin](https://scholar.google.de/citations?user=H1v0ztEAAAAJ)¹, [Ashish Kapoor](https://scholar.google.de/citations?user=4D1n8scAAAAJ)² , [Shuang Ma](https://scholar.google.de/citations?user=IHPRZuMAAAAJ)² , [Rogerio Bonatti](https://scholar.google.de/citations?user=WFgFAB8AAAAJ)²
 
-[Link](url) and ![Image](src)
-```
-
-For more details see [Basic writing and formatting syntax](https://docs.github.com/en/github/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax).
-
-### Jekyll Themes
-
-Your Pages site will use the layout and styles from the Jekyll theme you have selected in your [repository settings](https://github.com/arthurfenderbucker/NL_trajectory_reshaper/settings/pages). The name of this theme is saved in the Jekyll `_config.yml` configuration file.
-
-### Support or Contact
-
-Having trouble with Pages? Check out our [documentation](https://docs.github.com/categories/github-pages-basics/) or [contact support](https://support.github.com/contact) and we’ll help you sort it out.
+¹Technische Universitat München (TUM),  ²Microsoft

@@ -3,17 +3,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
-from visualization_msgs.msg import Marker, MarkerArray
-from nav_msgs.msg import Path
 import numpy as np
 import json
 
-from cv_bridge import CvBridge, CvBridgeError
-from sensor_msgs.msg import Image
 
-import rospy
 
-from geometry_msgs.msg import PoseStamped
 import os
 import math
 
@@ -24,7 +18,14 @@ from simple_TF_continuos import *
 from motion_refiner import Motion_refiner
 from functions import *
 
+import rospy
 import rospkg
+from nav_msgs.msg import Path
+from cv_bridge import CvBridge, CvBridgeError
+from sensor_msgs.msg import Image
+from geometry_msgs.msg import PoseStamped
+
+
 rospack = rospkg.RosPack()
 pkg_path = rospack.get_path('NL_trajectory_reshaper')
 
@@ -54,6 +55,8 @@ args = parser.parse_args()
 
 ros_enable = args.ros
 print("ros_enable",ros_enable)
+
+
 chomp_trajs_path = args.chomp_trajs_path
 model_path = args.model_path
 model_name = args.model_name

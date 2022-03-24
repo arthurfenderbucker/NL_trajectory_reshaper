@@ -40,7 +40,7 @@ def main():
         plt.imshow(map_cost,origin='lower')
         plt.colorbar()
    
-    n_maps = 2000
+    n_maps = 100
     for map_id in range(0,n_maps):
         
         print(map_id)
@@ -73,8 +73,6 @@ def main():
         
         for text, map_cost_f in lg.sample_labels(5):
             
-            
-            
             map_cost = np.array([[map_cost_f(x,y) for x in range(w+1)] for y in range(h+1)])
             # map_cost[m["oy"],m["ox"]] = MAX_COST
             
@@ -83,9 +81,8 @@ def main():
                 # print("\n",text)
                 plt.title(text)
                 plot_map_cost(map_cost)
-            # save_map_cost(map_cost,name=text+".csv")
+            
             #save map
-
             np.savetxt(os.path.join(path,text+".csv"), map_cost, delimiter=",")
 
             with open(os.path.join(path,"META.json"), 'w') as fp:
@@ -105,7 +102,7 @@ def main():
                 for x,y,name in zip(m["o_center_x"],m["o_center_y"],obj_names):
                     plt.text(x, y, name, bbox=props)
 
-                plt.show(block=False)
+                # plt.show(block=False)
 
                 # plt.figure()
                 # a_star = AStarPlanner(m["ox"], m["oy"], grid_size, robot_radius, map_cost = map_cost)
