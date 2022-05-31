@@ -23,7 +23,7 @@ conda activate py38
 ```
 Install CLIP + opencv
 ```
-pip install ftfy regex tqdm
+pip install ftfy regex tqdm dqrobotics
 pip install git+https://github.com/openai/CLIP.git
 pip install opencv-python
 ```
@@ -32,7 +32,7 @@ pip install opencv-python
 Download models
 
 ```
-conda install -c conda-forge gdown
+pip install gdown
 gdown --folder https://drive.google.com/drive/folders/1HQNwHlQUOPMnbPE-3wKpIb6GMBz5eqDg?usp=sharing -O models/.
 ```
 Download syntetic dataset
@@ -53,7 +53,6 @@ python modify_draw.py
 2) press 'm' to modify the trajectory using our model for the given input on top.
 3) press 't' to set a different interaction text.
 4) press 'u' to update the trajctory setting the modified traj as the original one
-
 
 
 
@@ -89,3 +88,4 @@ plots and ablation studies
 
 generate syntetic dataset
 [data_generator/data_generator.py](data_generator/data_generator.py)
+

@@ -17,34 +17,90 @@ CHANGE_WEIGHT = 100.0
 
 
 
+
+def repel(pts_raw, s=1.0,p=None,w=1.0):
+    MAX_REP_R = 0.6
+    MIN_REP_R = 0.05 
+    base_w = 0.005
+
+    pts = pts_raw[:,:3]
+    diff = pts-p
+
+    dist = np.expand_dims(np.linalg.norm(diff,axis=1),-1)
+    dir = np.divide(diff, dist, out=np.zeros_like(diff), where=dist!=0)
+
+
+    # f = np.divide(-s*(MAX_REP_R-dist), MAX_REP_R, out=np.zeros_like(dist), where=dist<MAX_REP_R)
+    f = np.divide(-s*(MAX_REP_R/2), MAX_REP_R, out=np.zeros_like(dist), where=(dist>MIN_REP_R)&(dist<MAX_REP_R))
+
+    F = np.zeros_like(pts_raw)
+    F[:,:3] = dir*f*w*base_w
+
+    return F
+
+
+def cartesian_grad(pts_raw,dir=[1.0,0.0,0,0],center=[50,50], r = 60,w = 0.01):
+   
+    pts = pts_raw[:,:3]
+    base_w = -0.2
+    f = 1.0
+
+    d = np.ones_like(pts)*dir
+    F = np.zeros_like(pts_raw)
+    F[:,:3] = d*f*w*base_w
+    return F
+
+
 #functions to change the map cost
-def repel(x,y,s=1.0,p=None,w=1.0):
-    # print("p = ",p)
-    cost = 1.0
+# def repel(x,y,s=1.0,p=None,w=1.0):
+#     # print("p = ",p)
+#     cost = 1.0
 
-    d = math.hypot(p[0] - x, p[1] - y)
-    if d <= MAX_REP_R:
-        cost = np.maximum(1.0+s*(MAX_REP_R-d)/MAX_REP_R,0.01)# linear decay
+#     d = math.hypot(p[0] - x, p[1] - y)
+#     if d <= MAX_REP_R:
+#         cost = np.maximum(1.0+s*(MAX_REP_R-d)/MAX_REP_R,0.01)# linear decay
     
-    return cost*w
+#     return cost*w
 
-def speed(value):
-    print("v = ",value)
+def speed(pts_raw, s=1.0,p=None,w=1.0):
 
-def cartesian_grad(x,y,dir=[1.0,0.0],center=[50,50], r = 60):
-    w = 10.0
-    norm = math.hypot(dir[0],dir[1])
-    cost = 1.0
-    d = ((x-center[0])*dir[0]+(y-center[1])*dir[1])/norm
+    MAX_REP_R = 0.6
+    MIN_REP_R = 0.05 
+    base_w = 0.005
+    # print("v = ",value)
 
-    # max_d  = (end[0]-start[0])*dir[0]+(end[1]-start[1])*dir[1]
-    max_d = 2*r
-    cost = 0
-    if(d>r):cost = 1.0
-    elif(d<-r):cost = 2.0
-    else: cost = np.clip(1.5+(-d)/abs(max_d),0.001,2.0)# linear decay
+    if p is None:
+        f = np.ones((pts_raw.shape[0],1))
+    else:
+        pts = pts_raw[:,:3] #3D
+        # print(p)
+        diff = pts-p
+
+        dist = np.expand_dims(np.linalg.norm(diff,axis=1),-1)
+        
+        # dir = np.divide(diff, dist, out=np.zeros_like(diff), where=dist!=0)
+
+        f = np.divide(-s*(MAX_REP_R-dist), MAX_REP_R, out=np.zeros_like(dist), where=dist<MAX_REP_R)
+
+    F = np.zeros_like(pts_raw)
+    F[:,3:] = f*w*base_w
+    return F
+
+
+# def cartesian_grad(x,y,dir=[1.0,0.0],center=[50,50], r = 60):
+#     w = 10.0
+#     norm = math.hypot(dir[0],dir[1])
+#     cost = 1.0
+#     d = ((x-center[0])*dir[0]+(y-center[1])*dir[1])/norm
+
+#     # max_d  = (end[0]-start[0])*dir[0]+(end[1]-start[1])*dir[1]
+#     max_d = 2*r
+#     cost = 0
+#     if(d>r):cost = 1.0
+#     elif(d<-r):cost = 2.0
+#     else: cost = np.clip(1.5+(-d)/abs(max_d),0.001,2.0)# linear decay
     
-    return cost
+#     return cost
 
 def get_map_cost(f_list):
     keys = {}
@@ -52,7 +108,7 @@ def get_map_cost(f_list):
         if isinstance(f, dict):
             for k, v in f.items():
                 keys[k] = v
-    def map_cost(x,y):
+    def map_cost(pt):
         cost = 1.0
         for f in f_list:
             
@@ -65,7 +121,7 @@ def get_map_cost(f_list):
                     # print('keys: ',[k for k in f[2] if k in keys.keys()])
                     # print('args: ',args)
                 
-                cost *= f[0](x,y,*args)
+                cost *= f[0](pt,*args)
         return cost*CHANGE_WEIGHT
     return map_cost
 
@@ -78,9 +134,9 @@ class Label_generator:
     objs = ["table","chair"]
 
 
-    objs = {"table":{"value":{"obj_p":[1,1]}},
-            "chair":{"value":{"obj_p":[2,2]}},
-            "tree":{"value":{"obj_p":[3,3]}}}
+    objs = {"table":{"value":{"obj_p":[1,1,1]}},
+            "chair":{"value":{"obj_p":[2,2,2]}},
+            "tree":{"value":{"obj_p":[3,3,3]}}}
 
 
     action_verbs = ["stay ", "pass ", "walk ", "drive "]
@@ -100,17 +156,33 @@ class Label_generator:
                 "keep a smaller distance from the ": {"before":[],"after":objs,"func":(repel,-1.0,["obj_p","w"])},
                 "keep a bigger distance from the ": {"before":[],"after":objs,"func":(repel,1.0,["obj_p","w"])}}
 
+
+    spatial_verbs = ["when passing ", "while passing "]   
+
+    spatial_dep= {"close to the ":{"before":spatial_verbs,"after":objs},
+                  "next to the ":{"before":spatial_verbs,"after":objs},
+                  "near the ":{"before":spatial_verbs,"after":objs},
+                  "nearby the ":{"before":spatial_verbs,"after":objs},
+                  "in the surrounding of the ":{"before":spatial_verbs+[""],"after":objs},
+                  "in the proximity of the ":{"before":spatial_verbs+[""],"after":objs},
+                  "":{"before":[],"after":[]}}
+
     speed_verbs = ["walk ", "drive ", "go "]   
-    speed_change = {"faster":{"before":(speed_verbs, change_intensity),"after":[],"func":(speed,1.0)},
-                    "slower":{"before":(speed_verbs, change_intensity),"after":[],"func":(speed,-1.0)},
-                    "reduce the speed":{"before":[],"after":[],"func":(speed,-1.0)},
-                    "increase the speed":{"before":[],"after":[],"func":(speed,1.0)}}
+    speed_change = {"faster ":{"before":(speed_verbs, change_intensity),"after":spatial_dep,"func":(speed,1.0, ["obj_p","w"])},
+                    "slower ":{"before":(speed_verbs, change_intensity),"after":spatial_dep,"func":(speed,-1.0, ["obj_p","w"])},
+                    "reduce the speed ":{"before":[],"after":spatial_dep,"func":(speed,-1.0,["obj_p","w"])},
+                    "increase the speed ":{"before":[],"after":spatial_dep,"func":(speed,1.0,["obj_p","w"])}}
 
     cartesian_verbs = ["stay on the ", "go to the ",""]
-    cartesian_change = {"left":{"before":cartesian_verbs,"func":(cartesian_grad, [-1.0,0.0])},
-                        "right":{"before":cartesian_verbs,"func":(cartesian_grad, [1.0,0.0])},
-                        "front":{"before":cartesian_verbs,"func":(cartesian_grad, [0.0,1.0])},
-                        "back":{"before":cartesian_verbs,"func":(cartesian_grad,[0.0,-1.0])}}
+    cartesian_change = {"left":{"before":cartesian_verbs,"func":(cartesian_grad, [-1.0,0.0,0.0])},
+                        "right":{"before":cartesian_verbs,"func":(cartesian_grad, [1.0,0.0,0.0])},
+                        "front":{"before":cartesian_verbs,"func":(cartesian_grad, [0.0,1.0,0.0])},
+                        "back":{"before":cartesian_verbs,"func":(cartesian_grad,[0.0,-1.0,0.0])},
+                        "top":{"before":cartesian_verbs,"func":(cartesian_grad,[0.0,0.0,1.0])},
+                        "down":{"before":["go","stay"],"func":(cartesian_grad,[0.0,0.0,-1.0])},
+                        "upper part":{"before":cartesian_verbs,"func":(cartesian_grad,[0.0,0.0,1.0])},
+                        "bottom part":{"before":cartesian_verbs,"func":(cartesian_grad,[0.0,0.0,-1.0])},
+                        "bottom":{"before":cartesian_verbs,"func":(cartesian_grad,[0.0,0.0,-1.0])}}
 
     change_type = {"dist":(dist_change),"speed":(speed_change),"cartesian":(cartesian_change)}
 
@@ -119,7 +191,7 @@ class Label_generator:
         # Temporal: after x, before x, while passing through x (3) + none (1)
         # Spatial: close to x, next to x (2)
     temporal_dep = {"after":1,"before":-1}
-    spatial_dep= {"while passing close to":0,"while passing next to":0}
+    
     causality_type = {"temporal":[temporal_dep], "spatial":[spatial_dep],"":[None]}
 
     def __init__(self, objs, w=60, h=60):
@@ -131,9 +203,12 @@ class Label_generator:
 
         for k in self.dist_change.keys():
             self.dist_change[k]["after"] = self.objs
+        for k in self.spatial_dep.keys():
+            if k != "":
+                self.spatial_dep[k]["after"] = self.objs
         self.labels = []
         
-    def generate_labels(self,change_names):
+    def generate_labels(self,change_names, shuffle=True):
         j = 0
 
         self.labels = []
@@ -145,6 +220,7 @@ class Label_generator:
                 map_cost = get_map_cost(f)
                 
                 self.labels.append([i,map_cost])
+        random.shuffle(self.labels)
         
 
     def sample_labels(self, n):

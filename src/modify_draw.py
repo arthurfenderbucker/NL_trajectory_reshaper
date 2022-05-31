@@ -6,8 +6,6 @@ from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import json
 
-
-
 import os
 import math
 
@@ -18,17 +16,26 @@ from simple_TF_continuos import *
 from motion_refiner import Motion_refiner
 from functions import *
 
-import rospy
-import rospkg
 from nav_msgs.msg import Path
 from cv_bridge import CvBridge, CvBridgeError
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import PoseStamped
 
 
-rospack = rospkg.RosPack()
-pkg_path = rospack.get_path('NL_trajectory_reshaper')
 
+import rospy
+import os
+
+
+pkg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),"..")
+print(pkg_path)
+try:
+    import rospkg
+
+    rospack = rospkg.RosPack()
+    pkg_path = rospack.get_path('NL_trajectory_reshaper')
+except:
+    print("error loading rospkg, running only only the interface...\n")
 
 parser = argparse.ArgumentParser(description='collect traj draw.')
 parser.add_argument('--ros', type=bool, default=False)
@@ -441,7 +448,7 @@ while not rospy.is_shutdown():
     elif k == ord("n"):
         di.placing_objs = False
         di.draw_new_traj = True
-        di.points = original_traj[1:].tolist()
+        # di.points = original_traj[1:].tolist()
         di.redraw()
     elif k == ord("m"):
 

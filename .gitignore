@@ -3,6 +3,8 @@ bags/
 user_trajs/
 models/*
 data/*
+build/*
+build/
 src/motion_refiner
 __pycache__/
 *.pyc
