@@ -18,7 +18,9 @@ CHANGE_WEIGHT = 100.0
 
 
 
-def repel(pts_raw, s=1.0,p=None,w=1.0):
+def repel(pts_raw,args, s=1.0,p=None,w=1.0):
+
+
     MAX_REP_R = 0.6
     MIN_REP_R = 0.05 
     base_w = 0.005
@@ -39,7 +41,7 @@ def repel(pts_raw, s=1.0,p=None,w=1.0):
     return F
 
 
-def cartesian_grad(pts_raw,dir=[1.0,0.0,0,0],center=[50,50], r = 60,w = 0.01):
+def cartesian_grad(pts_raw,args,dir=[1.0,0.0,0,0],center=[50,50], r = 60,w = 0.01):
    
     pts = pts_raw[:,:3]
     base_w = -0.2
@@ -62,7 +64,7 @@ def cartesian_grad(pts_raw,dir=[1.0,0.0,0,0],center=[50,50], r = 60,w = 0.01):
     
 #     return cost*w
 
-def speed(pts_raw, s=1.0,p=None,w=1.0):
+def speed(pts_raw,args, s=1.0,p=None,w=1.0):
 
     MAX_REP_R = 0.6
     MIN_REP_R = 0.05 
@@ -108,7 +110,7 @@ def get_map_cost(f_list):
         if isinstance(f, dict):
             for k, v in f.items():
                 keys[k] = v
-    def map_cost(pt):
+    def map_cost(pt,a):
         cost = 1.0
         for f in f_list:
             
@@ -121,7 +123,7 @@ def get_map_cost(f_list):
                     # print('keys: ',[k for k in f[2] if k in keys.keys()])
                     # print('args: ',args)
                 
-                cost *= f[0](pt,*args)
+                cost *= f[0](pt,a,*args)
         return cost*CHANGE_WEIGHT
     return map_cost
 

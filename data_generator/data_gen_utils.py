@@ -116,7 +116,7 @@ def generate_traj(n_wp = 40, N=100,n_int= 10,margin=0.4,show=False):
     return np.concatenate([pts,vel],axis = 1)
 
 
-def apply_force(pts_raw,map_cost_f,att_points=[]):
+def apply_force(pts_raw,map_cost_f,att_points=[],locality_factor=1.0):
 
     init_vel = pts_raw[-1:]
 
@@ -175,9 +175,10 @@ def apply_force(pts_raw,map_cost_f,att_points=[]):
 
         
         F_ext = np.zeros_like(pts_raw)
+        args = {}
         for func in map_cost_f:
 
-            F_ext += func(pts)*w
+            F_ext += func(pts,args)*w
         
         self_diff = wps-init_wps
         self_dist = np.expand_dims(np.linalg.norm(self_diff,axis=1),-1)
@@ -242,7 +243,7 @@ class data_generator():
 
         return obj_names,obj_classes, obj_pt, objs_dict
     
-    def generate(self, maps = 32,labels_per_map=4, plot=False):
+    def generate(self, maps = 32,labels_per_map=4, plot=False,N=100, n_int=10):
         """generates maps * labels_per_map samples"""
         data = []
 
@@ -252,7 +253,16 @@ class data_generator():
 
             lg = Label_generator(objs_dict)
 
-            pts = generate_traj(n_wp = 40, N=100,n_int= 10,show=False, margin=self.margin)
+            sample_done = True
+            while(sample_done):
+                try:
+                    n_int_ = random.choice(range(n_int[0],n_int[1])) if not n_int is int else n_int
+                    N_ = random.choice(range(N[0],N[1])) if not N is int else N
+                    
+                    pts = generate_traj(n_wp = 40, N=N_,n_int=n_int_,show=False, margin=self.margin)
+                    sample_done = False
+                except:
+                    print("map:",mi," - error generating the map")
 
             lg_ct = random.choices(list(self.change_types.keys()), weights=list(self.change_types.values()))
             lg.generate_labels(lg_ct, shuffle=True)
@@ -268,7 +278,9 @@ class data_generator():
                 #     text+=" and "+new_text
 
                 # print("\nORIGINAL:", text)
-                pts_new = apply_force(pts,map_cost_f_list)[0][0]
+                locality_factor = 1.0
+
+                pts_new = apply_force(pts,map_cost_f_list,locality_factor=locality_factor)[0][0]
                 # print("AUGMENTED:")
 
                 obj = find_obj_in_text(obj_names,text)
@@ -288,6 +300,8 @@ class data_generator():
                             # print("FAIL (",obj,") : ",ti, ti.split())
                     
                     text = random.choice(text_list) # chose final text among paraphrased possibilities 
+                
+                
                 # print("FINAL: ", text)
                 # if plot:
                 #     plot_samples(text,pts,[pts_new],objs=objs, color_traj  =True)
@@ -304,7 +318,8 @@ class data_generator():
                             "obj_in_text":obj,
                             "change_type":lg_ct[0],
                             "map_id":mi,
-                            "image_paths":obj_img_paths
+                            "image_paths":obj_img_paths,
+                            "locality_factor":locality_factor
                             })
 
         return data
