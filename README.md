@@ -64,6 +64,8 @@ python modify_draw.py
 [install ROS melodic](http://wiki.ros.org/melodic/Installation/Ubuntu)
 
 [manually install CVbridge](https://cyaninfinite.com/ros-cv-bridge-with-python-3/)
+> **NOTE:** this is the catkin config that I used to intall CVbridge with the Anaconda </br>
+```catkin config -DPYTHON_EXECUTABLE=/home/mirmi/anaconda3/envs/py38/bin/python -DPYTHON_INCLUDE_DIR=/home/mirmi/anaconda3/envs/py38/include/python3.8 -DPYTHON_LIBRARY=/home/mirmi/anaconda3/envs/py38/lib/libpython3.8.so -DSETUPTOOLS_DEB_LAYOUT=OFF```
 
 ## Running with ROS
 terminal 1
@@ -77,6 +79,25 @@ source $HOME/cvbridge_build_ws/install/setup.bash --extend
 python modify_draw.py --ros true
 ```
 
+---
+## coppelia_simulator + ROS + anaconda setup
+install coppelia simulator
+https://www.coppeliarobotics.com/helpFiles/en/ros1Tutorial.htm
+add ```export COPPELIASIM_ROOT_DIR=~/path/to/coppeliaSim/folde``` to your ~/.bashrc
+
+```
+cd <ros_workspace>/src
+git clone https://github.com/CoppeliaRobotics/ros_bubble_rob
+git clone --recursive https://github.com/CoppeliaRobotics/simExtROS.git sim_ros_interface
+cd <ros_workspace>
+```
+
+```
+catkin config -DPYTHON_EXECUTABLE=$HOME/anaconda3/envs/py38/bin/python -DPYTHON_INCLUDE_DIR=$HOME/anaconda3/envs/py38/include/python3.8 -DPYTHON_LIBRARY=$HOME/anaconda3/envs/py38/lib/libpython3.8.so -DSETUPTOOLS_DEB_LAYOUT=OFF
+
+catkin config --install
+catkin build
+```
 
 ## Other relevant files
 overview of the project

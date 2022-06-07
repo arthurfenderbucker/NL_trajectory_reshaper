@@ -259,9 +259,12 @@ def publish_simple_traj(traj, pub):
         ps.pose.position.y = -wp[1]
         ps.pose.position.z = 0
         msg.poses.append(ps)
-
-    pub.publish(msg)
-
+    
+    if len( msg.poses)>0:
+        print("traj len:",len( msg.poses))
+        pub.publish(msg)
+    else:
+        print("no traj to publish")
 
 def load_traj(file):
     with open(file) as f:

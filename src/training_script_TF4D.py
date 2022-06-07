@@ -11,7 +11,7 @@ import datetime
 import argparse
 
 import absl.logging #prevent checkpoint warnings while training
-absl.logging.set_verbosity(absl.logging.ERROR)
+# absl.logging.set_verbosity(absl.logging.ERROR)
 
 from motion_refiner_4D import Motion_refiner
 
@@ -20,15 +20,15 @@ from motion_refiner_4D import Motion_refiner
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--epochs', type=int, default=0)
-parser.add_argument('--bs', type=int, default=64)
+parser.add_argument('--bs', type=int, default=16)
 parser.add_argument('--dataset_dir', default='/home/tum/data/data/',
                     help='Dataset directory.')
 parser.add_argument('--models_path', default="/home/tum/data/models/")
 parser.add_argument('--exp_name', default="experimet_"+datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
 
 parser.add_argument('--lr', type=float, default=0.0) #use default lr decay
-parser.add_argument('--num_enc', type=int, default=1)
-parser.add_argument('--num_dec', type=int, default=6)
+parser.add_argument('--num_enc', type=int, default=2)
+parser.add_argument('--num_dec', type=int, default=4)
 parser.add_argument('--num_dense', type=int, default=3)
 parser.add_argument('--num_heads', type=int, default=8)
 parser.add_argument('--model_depth', type=int, default=256)
@@ -60,24 +60,16 @@ delimiter ="&"
 
 
 
+
 traj_n = 40
-mr = Motion_refiner(traj_n = traj_n)
-
-## ------- processed data -------
-# X,Y = mr.prepare_data(data,deltas=True)
-# print("X: ",X.shape)
-# print("Y: ",Y.shape)
-
-
-## ------- save pre processed data -------
-# mr.save_XY(X, Y, x_name="X_delta_new_names",y_name="Y_delta_new_names")
-# mr.save_data(data,data_name="data_delta_new_names")
-
-# ------- load data --------
-print("loading data...")
-X_, Y_ = mr.load_XY(x_name="X4D_10000_objs_2to6_norm",y_name="Y4D_10000_objs_2to6_norm")
-data_ = mr.load_data(data_name="data4D_100000_objs_2to6_norm")
+mr = Motion_refiner(load_models=True ,traj_n = traj_n)
 feature_indices, obj_sim_indices, obj_poses_indices, traj_indices = mr.get_indices()
+embedding_indices = np.concatenate([feature_indices,obj_sim_indices, obj_poses_indices])
+
+
+dataset_name = "4D_10000_objs_2to6_norm_"
+X,Y, data = mr.load_dataset(dataset_name, filter_data = True)
+X_train, X_test, X_valid, y_train, y_test, y_valid, indices_train, indices_test, indices_val = mr.split_dataset(X, Y, test_size=0.2, val_size=0.1)
 
 
 #------------------------------------------------------------------------
@@ -90,9 +82,10 @@ Y_abs = Y_
 print("X:",X_.shape,"\tY:",Y_.shape)
 # X, Y, data = X_, Y_abs, data_
 X,Y, data, i_invalid = filter(X_,Y_abs,data_,lower_limit=-0.98, upper_limit=0.98) #for tanh predictions
-X,Y, data, i_invalid_cartesian = filter_cartesian(X,Y, data)
+# X,Y, data, i_invalid_cartesian = filter_cartesian(X,Y, data)
 print("filtered limits X:",X.shape,"\tY:",Y.shape)
-X, ind = arg_max_obj(X, data, obj_sim_indices)
+# X, ind = arg_max_obj(X, data, obj_sim_indices)
+
 
 # print("filtered cartesian changes X:",X.shape,"\tY:",Y.shape)
 
@@ -112,7 +105,6 @@ if ignore_features:
 #------------------------------------------------------------------------
 
 
-
 import tensorflow as tf
 tf.get_logger().setLevel('ERROR')
 tf.autograph.set_verbosity(3)
@@ -129,15 +121,18 @@ def get_available_devices():
 print("\n\n devices: ",get_available_devices()) 
 
 # tf.random.set_seed(42)
-tf.random.set_seed(42)
+
+seed = 42
+tf.random.set_seed(seed)
+np.random.seed(seed)
 
 print("\n\nX:",X.shape,"\tY:",Y.shape)
 # print("filtered: ", len(i_invalid))
 
 # Split the data: 70% train 20% test 10% validation
-n_samples, input_size = X.shape # 768+traj_n*2+max_num_objs*3
-X_train_, X_test, y_train_, y_test, indices_train_, indices_test= train_test_split(X, Y,np.arange(n_samples), test_size=0.2, random_state=42,shuffle= True)
-X_train, X_valid, y_train, y_valid, indices_train, indices_val = train_test_split(X_train_, y_train_, indices_train_ ,test_size=0.125, shuffle= True)
+n_samples, input_size = X.shape
+X_train_, X_test, y_train_, y_test, indices_train_, indices_test= train_test_split(X, Y,np.arange(n_samples), test_size=0.2, random_state=seed,shuffle= True)
+X_train, X_valid, y_train, y_valid, indices_train, indices_val = train_test_split(X_train_, y_train_, indices_train_ ,random_state=seed,test_size=0.125, shuffle= True)
 print("Train X:",X_train.shape,"\tY:",y_train.shape)
 print("Test  X:",X_test.shape,"\tY:",y_test.shape)
 print("Val   X:",X_valid.shape,"\tY:",y_valid.shape)
@@ -146,7 +141,7 @@ print("Val   X:",X_valid.shape,"\tY:",y_valid.shape)
 #------------------------------------------------------------------------
 
 
-from simple_TF_continuos import *
+from TF4D import *
 
 embedding_indices = np.concatenate([feature_indices,obj_sim_indices, obj_poses_indices])
 # embedding_indices = np.concatenate([feature_indices,obj_sim_indices])
@@ -158,21 +153,22 @@ features_n = len(embedding_indices)
 
 bs=args.bs
 def prepare_x(x):
-  objs = list_to_wp_seq(x[:,obj_poses_indices])
-  trajs = list_to_wp_seq(x[:,traj_indices])
+  objs = pad_array(list_to_wp_seq(x[:,obj_poses_indices],d=3),4,axis=-1) # no speed
+  trajs = list_to_wp_seq(x[:,traj_indices],d=4)
   return np.concatenate([objs,trajs],axis = 1)
 
 train_dataset = tf.data.Dataset.from_tensor_slices((prepare_x(X_train),
-                                                  list_to_wp_seq(y_train),
+                                                  list_to_wp_seq(y_train,d=4),
                                                   X_train[:,embedding_indices])).batch(bs)
-
+print("train dataset created")
 val_dataset = tf.data.Dataset.from_tensor_slices((prepare_x(X_valid),
-                                                  list_to_wp_seq(y_valid),
+                                                  list_to_wp_seq(y_valid,d=4),
                                                   X_valid[:,embedding_indices])).batch(bs)
-
+print("validation dataset created")
 test_dataset = tf.data.Dataset.from_tensor_slices((prepare_x(X_test),
-                                                  list_to_wp_seq(y_test),
+                                                  list_to_wp_seq(y_test,d=4),
                                                   X_test[:,embedding_indices])).batch(bs)
+print("test dataset created")
 
 num_batches = 0
 for (batch, (_,_,_)) in enumerate(train_dataset):
@@ -200,7 +196,7 @@ param = dict(num_layers_enc = args.num_enc,
                 dff = args.dff,
                 num_heads = args.num_heads,
                 dropout_rate = args.dropout,
-                wp_d=2,
+                wp_d=4,
                 bs=args.bs,
                 dense_n=args.dense_n,
                 num_dense=args.num_dense,
@@ -262,12 +258,13 @@ def generator(data_set,stop=False,augment=True, num_objs = 3):
     while True:
         for x, y,emb in data_set:
             x_new, y_new = x,y
-            if augment:
-                x_new, y_new = augment_xy(x,y,width_shift_range=0.3, height_shift_range=0.3,rotation_range=np.pi,
-                        zoom_range=[0.6,1.1],horizontal_flip=True, vertical_flip=True, offset=[-0.5,-0.5])
-            else:
-                x_new, y_new = augment_xy(x,y,width_shift_range=0.0, height_shift_range=0.0,rotation_range=0.0,
-                        zoom_range=0.0,horizontal_flip=False, vertical_flip=False, offset=[-0.5,-0.5])
+            # if augment:
+            #     x_new, y_new = augment_xy(x,y,width_shift_range=0.3, height_shift_range=0.3,rotation_range=np.pi,
+            #             zoom_range=[0.6,1.1],horizontal_flip=True, vertical_flip=True, offset=[0.0,0.0])
+            # else:
+            #     x_new, y_new = augment_xy(x,y,width_shift_range=0.0, height_shift_range=0.0,rotation_range=0.0,
+            #             zoom_range=0.0,horizontal_flip=False, vertical_flip=False, offset=[0.0,0.0])
+
             # emb[:,-num_batches:] = tf.one_hot(tf.argmax(emb[:,-num_batches:],1),num_objs).numpy()
             # emb_new = tf.concat([emb[:,:-num_batches],tf.one_hot(tf.argmax(emb[:,-num_batches:],1),num_objs)],-1)
             
@@ -317,15 +314,16 @@ def generator(data_set,stop=False,augment=True, num_objs = 3):
 # data_tf = ds.make_one_shot_iterator().get_next()
 
 def increase_dataset(x,y,embedding_indices,augment_factor):
-    x_, y_ = prepare_x(x), list_to_wp_seq(y)
+    x_, y_ = prepare_x(x), list_to_wp_seq(y,d=4)
     emb = x[:,embedding_indices]
 
     x_new = x_
     y_new = y_
     emb_new=emb
     for i in range(augment_factor):
+
         x_new_i, y_new_i = augment_xy(x_,y_,width_shift_range=0.5, height_shift_range=0.5,rotation_range=np.pi,
-                        zoom_range=[0.5,1.5],horizontal_flip=True, vertical_flip=True, offset=[-0.5,-0.5])
+                        zoom_range=[0.5,1.5],horizontal_flip=True, vertical_flip=True, offset=[0.0,0.0])
         x_new = np.append(x_new,x_new_i, axis=0)
         y_new = np.append(y_new,y_new_i, axis=0)
         emb_new = np.append(emb_new,emb, axis=0)
@@ -336,35 +334,25 @@ def increase_dataset(x,y,embedding_indices,augment_factor):
 def evaluate_model(model, epoch):
 
     print("epoch:",epoch)
-    print("\nwith data augmentation:")
+    # print("\nwith data augmentation:")
     # result_eval_aug = model.evaluate(generator(test_dataset,stop=True))[0]
-    x_test_new, y_test_new, emb_test_new= increase_dataset(X_test ,y_test,embedding_indices,10)
-    result_eval_aug = model.evaluate((x_test_new, y_test_new[:,:-1,:], emb_test_new), y_test_new[:,1:,:])[0]
 
+    x_test_new, y_test_new = prepare_x(X_test), list_to_wp_seq(y_test,d=4)
+    emb_test_new = X_test[:,embedding_indices]
 
-    print("without data augmentation:")
-    # result_eval = model.evaluate(generator(test_dataset,stop=True, augment=False))[0]
-    x_test_new, y_test_new, emb_test_new= increase_dataset(X_test ,y_test,embedding_indices,0)
+    # x_test_new, y_test_new, emb_test_new= increase_dataset(X_test ,y_test,embedding_indices,10)
     result_eval = model.evaluate((x_test_new, y_test_new[:,:-1,:], emb_test_new), y_test_new[:,1:,:])[0]
 
     print("\n ----------------------------------------")
     print("withdata generation:")
-
-
     test_dataset = tf.data.Dataset.from_tensor_slices((prepare_x(X_test),
-                                                    list_to_wp_seq(y_test),
+                                                    list_to_wp_seq(y_test,d=4),
                                                     X_test[:,embedding_indices])).batch(X_test.shape[0])
-
-    g = generator(test_dataset,stop=True,augment=True)
-    x_t, y_t = next(g)
-    pred = generate(model ,x_t).numpy()
-    result_gen_aug = np.average((y_t - pred[:,1:,:])**2)
-    print("Test loss w generation and augmentation: ",result_gen_aug)
-
 
     g = generator(test_dataset,stop=True,augment=False)
     x_t, y_t = next(g)
-    pred = generate(model ,x_t).numpy()
+    pred = generate(model ,x_t, traj_n=traj_n).numpy()
+    print(pred.shape)
     result_gen = np.average((y_t - pred[:,1:,:])**2)
     print("Test loss w generation: ",result_gen)
 
@@ -372,9 +360,7 @@ def evaluate_model(model, epoch):
     file_writer = tf.summary.create_file_writer(logdir + "/metrics")
     with file_writer.as_default():
         tf.summary.scalar('test_result_gen', data=result_gen, step=epoch)
-        tf.summary.scalar('test_result_gen_aug', data=result_gen_aug, step=epoch)
         tf.summary.scalar('test_result_eval', data=result_eval, step=epoch)
-        tf.summary.scalar('test_result_eval_aug', data=result_eval_aug, step=epoch)
 
 
 
@@ -395,7 +381,11 @@ earlly_stop_cb = tf.keras.callbacks.EarlyStopping(monitor='val_loss',  mode='min
 tensorboard_cb = tf.keras.callbacks.TensorBoard(logdir, histogram_freq=1)
 checkpoint_cb = tf.keras.callbacks.ModelCheckpoint(model_file, verbose=0,
                                                     monitor='val_loss', mode='min', save_best_only=True)
-absl.logging.set_verbosity(absl.logging.ERROR)  #prevent checkpoint warnings while training
+
+# absl.logging.set_verbosity(absl.logging.ERROR)  #prevent checkpoint warnings while training
+
+
+
 total_epochs = 0
 
 # x_train_new, y_train_new, emb_train_new= increase_dataset(X_train ,y_train,embedding_indices,10)

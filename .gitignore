@@ -5,6 +5,8 @@ models/*
 data/*
 build/*
 build/
+.vscode
+.vscode/*
 src/motion_refiner
 __pycache__/
 *.pyc

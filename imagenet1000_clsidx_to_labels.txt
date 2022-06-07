@@ -686,7 +686,7 @@
 "685": ["odometer", "hodometer", "mileometer", "milometer"],
 "686": ["oil filter"],
 "687": ["organ", "pipe organ"],
-"688": ["oscilloscope", "scope", "cathode-ray oscilloscope", "CRO"],
+"688": ["oscilloscope", "scope", "cathode-ray oscilloscope"],
 "689": ["overskirt"],
 "690": ["oxcart"],
 "691": ["oxygen mask"],

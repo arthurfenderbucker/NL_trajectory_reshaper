@@ -1,7 +1,6 @@
 import matplotlib.collections as mcoll
 import matplotlib.path as mpath
 import random
-from matplotlib import cm
 import matplotlib.colors
 import numpy as np
 import matplotlib.pyplot as plt
@@ -9,12 +8,19 @@ import re
 from mpl_toolkits.mplot3d import Axes3D #for plotting the 3-D plot.
 from scipy import interpolate
 from sklearn.utils import shuffle
-from labels_generator import Label_generator
+try:
+    from data_generator.labels_generator import Label_generator
+except:
+    from labels_generator import Label_generator
+import os
 import torch
 from typing import List
 from transformers import PegasusForConditionalGeneration, PegasusTokenizer 
 import json 
 import warnings
+
+from tqdm import tqdm
+
 warnings.filterwarnings("ignore", category=DeprecationWarning) 
 warnings.filterwarnings("ignore", category=FutureWarning) 
 
@@ -32,7 +38,7 @@ class Text_augmentor():
         tgt_text = self.tokenizer.batch_decode(translated, skip_special_tokens = True)
         return tgt_text
 
-def generate_traj(n_wp = 40, N=100,n_int= 10,margin=0.2,show=False):
+def generate_traj(n_wp = 40, N=100,n_int= 10,margin=0.4,show=False):
     min_vel = 0.01
     
     R = (np.random.rand(N)*6).astype("int") #Randomly intializing the steps
@@ -94,12 +100,12 @@ def generate_traj(n_wp = 40, N=100,n_int= 10,margin=0.2,show=False):
     vel_min = np.min(velint,axis = 0)
     vel_max = np.max(velint,axis = 0)
     vel_norm = np.max(np.abs(vel_max-vel_min))
-    vel = ((velint-vel_min)/vel_norm)*(1-margin)+margin/2
+    vel = ((velint-vel_min)/vel_norm)*(1-margin)+margin/2-0.5
 
     pts_min = np.min(pts,axis = 0)
     pts_max = np.max(pts,axis = 0)
     norm = np.max(np.abs(pts_max-pts_min))
-    pts  = ((pts-pts_min)/norm)*(1-margin)+margin/2
+    pts  = ((pts-pts_min)/norm)*(1-margin)+margin/2-0.5
 
     if show:
         ax = plt.subplot(1,1,1, projection='3d')
@@ -208,7 +214,7 @@ def find_obj_in_text(obj_names,text):
 
 class data_generator():
 
-    def __init__(self, change_types:dict, obj_lib_file="imagenet1000_clsidx_to_labels.txt"):
+    def __init__(self, change_types:dict, obj_lib_file="imagenet1000_clsidx_to_labels.txt", images_base_path = ""):
         
         self.change_types = change_types
         # self.label_generators = []
@@ -217,20 +223,19 @@ class data_generator():
 
         self.text_ag = Text_augmentor()
         self.obj_library = {}
-        self.margin = 0.2
+        self.margin = 0.4
+        self.images_base_path = images_base_path
 
         with open(obj_lib_file) as f:
             self.obj_library = json.load(f)
 
-        
-        labels_per_map = 4
 
     def get_objs(self, num_objs:int) -> dict:
 
         obj_classes = random.sample(self.obj_library.keys(),num_objs)
         obj_names = [random.choice(self.obj_library[o]) for o in obj_classes]
 
-        obj_pt = np.random.random([num_objs,3])*(1-self.margin)+self.margin/2
+        obj_pt = np.random.random([num_objs,3])*(1-self.margin)+self.margin/2-0.5
         objs_dict  = {}
         for x,y,z,name,c in zip(obj_pt[:,0],obj_pt[:,1],obj_pt[:,2],obj_names, obj_classes):
             objs_dict[name] = {"value":{"obj_p":[x,y,z]}, "class":c}
@@ -241,7 +246,7 @@ class data_generator():
         """generates maps * labels_per_map samples"""
         data = []
 
-        for mi in range(maps):
+        for mi in tqdm(range(maps)):
             num_objs = random.randint(MIN_NUM_OBJS,MAX_NUM_OBJS)
             obj_names,obj_classes, obj_pt, objs_dict = self.get_objs(num_objs)
 
@@ -287,14 +292,19 @@ class data_generator():
                 # if plot:
                 #     plot_samples(text,pts,[pts_new],objs=objs, color_traj  =True)
 
+                objs_img_base_paths = [self.images_base_path+c+"/"+n for c,n in zip(obj_classes,obj_names)]
+                obj_img_paths = [im_path+"/"+random.choice(os.listdir(im_path)) for im_path in objs_img_base_paths]
+
                 data.append({"input_traj":pts,
                             "output_traj":pts_new,
                             "text":text,
                             "obj_names":obj_names,
                             "obj_poses":obj_pt,
+                            "obj_classes":obj_classes,
                             "obj_in_text":obj,
                             "change_type":lg_ct[0],
-                            "map_id":mi
+                            "map_id":mi,
+                            "image_paths":obj_img_paths
                             })
 
         return data
@@ -309,91 +319,3 @@ class data_generator():
 
 
 
-
-# =============== ploting =====================
-
-def plot3Dcolor(x, y, z, c, ax=None, cmap=None, **args):
-    if ax is None:
-        fig = plt.figure()
-        ax = fig.gca(projection='3d')
-    if cmap is None:
-        cmap=plt.cm.plasma
-        
-    for i in range(1, len(x)):
-        ax.plot(x[i-1:i+1], y[i-1:i+1], z[i-1:i+1], c=cmap(c[i-1]), **args)
-
-def plot_samples(text,pts,pts_new_list, i=0,objs=None, colors = ["#03b300","#026641","#0071b3", "#1e0191"], plot_voxels= False, color_traj = False):
-    
-    fig = plt.figure(figsize=(10,13))
-
-    fig.add_subplot(1,1,1,projection='3d')
-    ax = fig.gca(projection='3d')
-
-    cmap=plt.cm.viridis
-    # plot3Dcolor(x_init, y_init, z_init, vel_init,ax=ax, cmap=cmap,linewidth=5.0)
-    
-    x_init, y_init, z_init, vel_init = pts[:,0],pts[:,1],pts[:,2], pts[:,3]
-    ax.plot(x_init, y_init, z_init,alpha=0.9,color="red", label="ORIGINAL") #alpha sets the darkness of the path.
-
-    if color_traj:
-        norm = matplotlib.colors.Normalize(vmin=np.min(-0.5), vmax=np.max(0.5))
-        fig.colorbar(cm.ScalarMappable(norm=norm, cmap=cmap), ax=ax, fraction=0.026, pad=0.04,label='speed change')
-
-
-    for pts_new in pts_new_list:
-
-        x_new, y_new, z_new, vel_new = pts_new[:,0],pts_new[:,1],pts_new[:,2],pts_new[:,3]
-
-        color = colors[i] if i < len(colors)-1 else "#"+''.join([random.choice('0123456789ABCDEF') for j in range(6)])    
-        
-        if color_traj:
-            plot3Dcolor(x_new, y_new, z_new, vel_new-vel_init+0.5,ax=ax, cmap=cmap,linewidth=5.0)
-            
-        else:
-            ax.plot(x_new, y_new, z_new,alpha=0.9, color=color, label=text) #alpha sets the darkness of the path.
-        
-        
-        ax2 = fig.add_subplot(7,1,7)
-        ax2.plot(np.arange(len(vel_init)),vel_init,color="red",label="original")
-        ax2.plot(np.arange(len(vel_init)),vel_new,color=color,label=text)
-        ax2.set_xlabel('waypoints')
-        ax2.set_ylabel('speed')
-
-        ax2.set_title("speed change")
-        
-        ax.scatter(x_new, y_new, z_new,alpha=0.9,color=color) #alpha sets the darkness of the path.
-        ax.set_xlabel('X axis')
-        ax.set_ylabel('Y axis')
-        ax.set_zlabel('Z axis')
-        ax.set_title(text)
-
-        if plot_voxels:
-            grid = np.mgrid[0:1:0.1,0:1:0.1,0:1:0.1]
-            x,y,z = grid
-
-            cost = np.linalg.norm(map_cost_f(grid[:,:-1,:-1,:-1].T.reshape((-1,3))),axis=1)
-            
-            data = cost.reshape([9,9,9]).T*2.0
-            
-            visiblebox = np.random.choice([True,False],data.shape)
-            visiblebox = np.where(data>0.0, True, False)
-            colors = plt.cm.plasma(data)
-            norm = matplotlib.colors.Normalize(vmin=np.min(data), vmax=np.max(data))
-            vox = ax.voxels(x,y,z,visiblebox,facecolors=colors,alpha = 0.1,edgecolor='None')
-
-            m = cm.ScalarMappable(cmap=plt.cm.plasma, norm=norm)
-            m.set_array([])
-            plt.colorbar(m)
-
-    if not objs is None:
-        for name,v in objs.items():
-            x,y,z = v["value"]["obj_p"]
-            ax.scatter(x,y,z)
-            ax.text(x, y, z, name, 'x')
-    # handles, labels = ax.get_legend_handles_labels()
-    # ax.legend(handles[::-1], labels[::-1])
-
-
-    handles, labels = ax2.get_legend_handles_labels()
-    ax.legend(handles[::-1], labels[::-1])
-    plt.show()
