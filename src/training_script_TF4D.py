@@ -14,7 +14,7 @@ import absl.logging #prevent checkpoint warnings while training
 # absl.logging.set_verbosity(absl.logging.ERROR)
 
 from motion_refiner_4D import Motion_refiner
-
+# import mlflow
 
 
 parser = argparse.ArgumentParser()
@@ -348,6 +348,8 @@ def evaluate_model(model, epoch):
     result_gen = np.average((y_t - pred[:,1:,:])**2)
     print("Test loss w generation: ",result_gen)
 
+    
+    # mlflow.log_metric('test_result_gen', result_gen)
 
     file_writer = tf.summary.create_file_writer(logdir + "/metrics")
     with file_writer.as_default():
@@ -370,7 +372,7 @@ print("starting: ",model_name )
 
 
 earlly_stop_cb = tf.keras.callbacks.EarlyStopping(monitor='val_loss',  mode='min', verbose=2, patience=30)
-tensorboard_cb = tf.keras.callbacks.TensorBoard(logdir, histogram_freq=1)
+tensorboard_cb = tf.keras.callbacks.TensorBoard(logdir, histogram_freq=10)
 checkpoint_cb = tf.keras.callbacks.ModelCheckpoint(model_file, verbose=0,
                                                     monitor='val_loss', mode='min', save_best_only=True)
 
