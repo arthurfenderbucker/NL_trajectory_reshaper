@@ -298,8 +298,13 @@ def show_data4D(d_,image_loader= None,pred=None, show=True,color_traj=True, obj_
         # objs_img_base_paths = [images_path+c+"/"+n for c,n in zip(obj_classes,obj_names)]
 
         # obj_img_paths = [im_path+"/"+random.choice(os.listdir(im_path)) for im_path in objs_img_base_paths]
-        objs_images = [image_loader(im) for im in image_paths]
+        objs_images = []
+        if not image_loader is None:
+            objs_images = [image_loader(im) for im in image_paths]
+
         plot_samples(text,pts,new_pts_list, images=objs_images,objs=objs, color_traj =color_traj)
+
+
         # if color_traj:
         #     norm = matplotlib.colors.Normalize(vmin=-0.5, vmax=0.5)
         #     fig.colorbar(cm.ScalarMappable(norm=norm, cmap=cmap), ax=ax, fraction=0.026, pad=0.04,label='speed change')
@@ -406,17 +411,18 @@ def plot_samples(text,pts,pts_new_list, images=[], fig=None,objs=None, colors = 
     # im3 = np.flipud(im1)
     # im4 = np.fliplr(im2)
     # images = [im1, im2, im3, im4]
-    grid = ImageGrid(fig, (7,2,13),  # similar to subplot(111)
-                 nrows_ncols=(1, len(images)),  # creates 2x2 grid of axes
-                 axes_pad=0.02,  # pad between axes in inch.
-                 )
+    if len(images)>0:
+        grid = ImageGrid(fig, (7,2,13),  # similar to subplot(111)
+                    nrows_ncols=(1, len(images)),  # creates 2x2 grid of axes
+                    axes_pad=0.02,  # pad between axes in inch.
+                    )
 
-    for obj_name,ax_im, im in zip(objs.keys(),grid, images):
-        # Iterating over the grid returns the Axes.
-        ax_im.imshow(im)
-        ax_im.axes.xaxis.set_ticklabels([])
-        ax_im.axes.yaxis.set_ticklabels([])
-        ax_im.set_title(obj_name,fontsize=8)
+        for obj_name,ax_im, im in zip(objs.keys(),grid, images):
+            # Iterating over the grid returns the Axes.
+            ax_im.imshow(im)
+            ax_im.axes.xaxis.set_ticklabels([])
+            ax_im.axes.yaxis.set_ticklabels([])
+            ax_im.set_title(obj_name,fontsize=8)
 
     # for i,img in enumerate(images):
     #     img_ax.append(fig.add_subplot(7, 7, i))
