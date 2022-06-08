@@ -1,0 +1,1 @@
+{"project_name": "corl", "storage_account_name": "tumdata", "container_name": "amulet", "blob_storage_account_name": "tumdata", "registry_name": "projects", "local_path": "/home/tum/NL_trajectory_reshaper", "default_output_dir": "/home/tum/NL_trajectory_reshaper/amlt", "project_uuid": "7345382127.11107-7316c666-ddce-4f58-b242-dd5f39c11721", "version": "9.1.0.post1"}

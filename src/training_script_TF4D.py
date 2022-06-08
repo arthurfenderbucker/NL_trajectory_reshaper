@@ -67,8 +67,9 @@ feature_indices, obj_sim_indices, obj_poses_indices, traj_indices = mr.get_indic
 embedding_indices = np.concatenate([feature_indices,obj_sim_indices, obj_poses_indices])
 
 
-dataset_name = "4D_10000_objs_2to6_norm_"
-X,Y, data = mr.load_dataset(dataset_name, filter_data = True)
+# dataset_name = "4D_10000_objs_2to6_norm_"
+dataset_name = "4D_80000"
+X,Y, data = mr.load_dataset(dataset_name, filter_data = True, base_path=args.dataset_dir)
 X_train, X_test, X_valid, y_train, y_test, y_valid, indices_train, indices_test, indices_val = mr.split_dataset(X, Y, test_size=0.2, val_size=0.1)
 
 
@@ -77,15 +78,6 @@ X_train, X_test, X_valid, y_train, y_test, y_valid, indices_train, indices_test,
 # print(reorganize_input(np.expand_dims(np.array(range(20)),axis=0)))
 
 # Y_abs = Y_+ X_[:,traj_indices]
-Y_abs = Y_
-
-print("X:",X_.shape,"\tY:",Y_.shape)
-# X, Y, data = X_, Y_abs, data_
-X,Y, data, i_invalid = filter(X_,Y_abs,data_,lower_limit=-0.98, upper_limit=0.98) #for tanh predictions
-# X,Y, data, i_invalid_cartesian = filter_cartesian(X,Y, data)
-print("filtered limits X:",X.shape,"\tY:",Y.shape)
-# X, ind = arg_max_obj(X, data, obj_sim_indices)
-
 
 # print("filtered cartesian changes X:",X.shape,"\tY:",Y.shape)
 
@@ -123,19 +115,19 @@ print("\n\n devices: ",get_available_devices())
 # tf.random.set_seed(42)
 
 seed = 42
-tf.random.set_seed(seed)
-np.random.seed(seed)
+# tf.random.set_seed(seed)
+# np.random.seed(seed)
 
 print("\n\nX:",X.shape,"\tY:",Y.shape)
 # print("filtered: ", len(i_invalid))
 
 # Split the data: 70% train 20% test 10% validation
 n_samples, input_size = X.shape
-X_train_, X_test, y_train_, y_test, indices_train_, indices_test= train_test_split(X, Y,np.arange(n_samples), test_size=0.2, random_state=seed,shuffle= True)
-X_train, X_valid, y_train, y_valid, indices_train, indices_val = train_test_split(X_train_, y_train_, indices_train_ ,random_state=seed,test_size=0.125, shuffle= True)
-print("Train X:",X_train.shape,"\tY:",y_train.shape)
-print("Test  X:",X_test.shape,"\tY:",y_test.shape)
-print("Val   X:",X_valid.shape,"\tY:",y_valid.shape)
+# X_train_, X_test, y_train_, y_test, indices_train_, indices_test= train_test_split(X, Y,np.arange(n_samples), test_size=0.2, random_state=seed,shuffle= True)
+# X_train, X_valid, y_train, y_valid, indices_train, indices_val = train_test_split(X_train_, y_train_, indices_train_ ,random_state=seed,test_size=0.125, shuffle= True)
+# print("Train X:",X_train.shape,"\tY:",y_train.shape)
+# print("Test  X:",X_test.shape,"\tY:",y_test.shape)
+# print("Val   X:",X_valid.shape,"\tY:",y_valid.shape)
 
 
 #------------------------------------------------------------------------
@@ -455,7 +447,7 @@ print(" ----------------------------------------")
 
 model = load_model(model_file)
 # compile(model)
-evaluate_model(model, epoch = total_epochs)
+evaluate_model(model, epoch = total_epochs+1)
 
 
 print("\n\n ----------------------------------------")

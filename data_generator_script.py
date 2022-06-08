@@ -14,7 +14,7 @@ traj_n = 40
 mr = Motion_refiner(traj_n = traj_n)
 
 images_base_path="/home/mirmi/Arthur/dataset/"
-obj_lib_file= "/home/mirmi/Arthur/trajnlp_ws/src/NL_trajectory_reshaper/imagenet1000_clsidx_to_labels.txt"
+obj_lib_file= "/home/tum/NL_trajectory_reshaper/imagenet1000_clsidx_to_labels.txt"
 dataset_name = "4D_100000_objs_2to6_norm"
 
 

@@ -7,6 +7,9 @@ build/*
 build/
 .vscode
 .vscode/*
+*.yml
+Dockerfile
+__pycache__
 src/motion_refiner
 __pycache__/
 *.pyc
