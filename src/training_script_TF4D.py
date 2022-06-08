@@ -131,11 +131,11 @@ print("\n\nX:",X.shape,"\tY:",Y.shape)
 
 # Split the data: 70% train 20% test 10% validation
 n_samples, input_size = X.shape
-X_train_, X_test, y_train_, y_test, indices_train_, indices_test= train_test_split(X, Y,np.arange(n_samples), test_size=0.2, random_state=seed,shuffle= True)
-X_train, X_valid, y_train, y_valid, indices_train, indices_val = train_test_split(X_train_, y_train_, indices_train_ ,random_state=seed,test_size=0.125, shuffle= True)
-print("Train X:",X_train.shape,"\tY:",y_train.shape)
-print("Test  X:",X_test.shape,"\tY:",y_test.shape)
-print("Val   X:",X_valid.shape,"\tY:",y_valid.shape)
+# X_train_, X_test, y_train_, y_test, indices_train_, indices_test= train_test_split(X, Y,np.arange(n_samples), test_size=0.2, random_state=seed,shuffle= True)
+# X_train, X_valid, y_train, y_valid, indices_train, indices_val = train_test_split(X_train_, y_train_, indices_train_ ,random_state=seed,test_size=0.125, shuffle= True)
+# print("Train X:",X_train.shape,"\tY:",y_train.shape)
+# print("Test  X:",X_test.shape,"\tY:",y_test.shape)
+# print("Val   X:",X_valid.shape,"\tY:",y_valid.shape)
 
 
 #------------------------------------------------------------------------
