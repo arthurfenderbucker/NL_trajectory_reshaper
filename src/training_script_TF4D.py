@@ -14,6 +14,7 @@ import absl.logging #prevent checkpoint warnings while training
 # absl.logging.set_verbosity(absl.logging.ERROR)
 
 from motion_refiner_4D import Motion_refiner
+# from mlflow.tracking import MlflowClient
 # import mlflow
 
 
@@ -27,8 +28,8 @@ parser.add_argument('--models_path', default="/home/tum/data/models/")
 parser.add_argument('--exp_name', default="experimet_"+datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
 
 parser.add_argument('--lr', type=float, default=0.0) #use default lr decay
-parser.add_argument('--num_enc', type=int, default=2)
-parser.add_argument('--num_dec', type=int, default=4)
+parser.add_argument('--num_enc', type=int, default=1)
+parser.add_argument('--num_dec', type=int, default=1)
 parser.add_argument('--num_dense', type=int, default=3)
 parser.add_argument('--num_heads', type=int, default=8)
 parser.add_argument('--model_depth', type=int, default=256)
@@ -37,14 +38,14 @@ parser.add_argument('--dff', type=int, default=512)
 parser.add_argument('--dense_n', type=int, default=512)
 parser.add_argument('--concat_emb', type=int, default=1)
 parser.add_argument('--max_epochs', type=int, default=10000)
-parser.add_argument('--augment', type=int, default=1)
+parser.add_argument('--augment', type=int, default=0)
 parser.add_argument('--base_model', type=str, default="None")
-parser.add_argument('--refine', type=int, default=1)
+parser.add_argument('--refine', type=int, default=0)
 parser.add_argument('--optimizer', type=str, default="adam")
-parser.add_argument('--activation', type=str, default="tanh")
+parser.add_argument('--activation', type=str, default="linear")
 parser.add_argument('--ignore_features', type=int, default=0)
 parser.add_argument('--norm_layer', type=int, default=1)
-
+parser.add_argument('--num_emb_vec', type=int, default=4)
 
 
 args = parser.parse_args()
@@ -56,13 +57,13 @@ augment = False if args.augment == 0 else True
 ignore_features = False if args.ignore_features == 0 else True
 norm_layer = False if args.norm_layer == 0 else True
 
-delimiter ="&"
+delimiter ="-"
 
 
 
 
 traj_n = 40
-mr = Motion_refiner(load_models=True ,traj_n = traj_n)
+mr = Motion_refiner(load_models=False ,traj_n = traj_n)
 feature_indices, obj_sim_indices, obj_poses_indices, traj_indices = mr.get_indices()
 embedding_indices = np.concatenate([feature_indices,obj_sim_indices, obj_poses_indices])
 
@@ -121,19 +122,14 @@ seed = 42
 print("\n\nX:",X.shape,"\tY:",Y.shape)
 # print("filtered: ", len(i_invalid))
 
-# Split the data: 70% train 20% test 10% validation
 n_samples, input_size = X.shape
-# X_train_, X_test, y_train_, y_test, indices_train_, indices_test= train_test_split(X, Y,np.arange(n_samples), test_size=0.2, random_state=seed,shuffle= True)
-# X_train, X_valid, y_train, y_valid, indices_train, indices_val = train_test_split(X_train_, y_train_, indices_train_ ,random_state=seed,test_size=0.125, shuffle= True)
-# print("Train X:",X_train.shape,"\tY:",y_train.shape)
-# print("Test  X:",X_test.shape,"\tY:",y_test.shape)
-# print("Val   X:",X_valid.shape,"\tY:",y_valid.shape)
-
-
 #------------------------------------------------------------------------
 
 
-from TF4D import *
+# Create a new experiment if one doesn't already exist
+# mlflow.create_experiment(args.exp_name)
+
+from TF4D_mult_features import *
 
 embedding_indices = np.concatenate([feature_indices,obj_sim_indices, obj_poses_indices])
 # embedding_indices = np.concatenate([feature_indices,obj_sim_indices])
@@ -189,6 +185,7 @@ param = dict(num_layers_enc = args.num_enc,
                 num_heads = args.num_heads,
                 dropout_rate = args.dropout,
                 wp_d=4,
+                num_emb_vec=args.num_emb_vec,
                 bs=args.bs,
                 dense_n=args.dense_n,
                 num_dense=args.num_dense,
@@ -215,7 +212,7 @@ if args.base_model != "None":
     
     if args.base_model[-3:] == ".h5": #base_model is a path
 
-        model = load_model(args.base_model)
+        model = load_model(args.base_model,delimiter =delimiter)
         base_model_name = args.base_model.split("/")[-1][:-3]
     else:
         base_model_name = args.base_model
@@ -348,8 +345,16 @@ def evaluate_model(model, epoch):
     result_gen = np.average((y_t - pred[:,1:,:])**2)
     print("Test loss w generation: ",result_gen)
 
-    
-    # mlflow.log_metric('test_result_gen', result_gen)
+
+    # Start the run, log metrics, end the run
+    # try:
+    #     with mlflow.start_run() as run:
+    #         # Run started when context manager is entered, and ended when context manager exits
+    #         mlflow.log_metric('epoc', epoch)
+    #         mlflow.log_metric('test_result_gen', result_gen)
+    #         mlflow.log_metric('test_result_eval', result_eval)
+    # except:
+    #     pass
 
     file_writer = tf.summary.create_file_writer(logdir + "/metrics")
     with file_writer.as_default():
@@ -372,7 +377,7 @@ print("starting: ",model_name )
 
 
 earlly_stop_cb = tf.keras.callbacks.EarlyStopping(monitor='val_loss',  mode='min', verbose=2, patience=30)
-tensorboard_cb = tf.keras.callbacks.TensorBoard(logdir, histogram_freq=10)
+tensorboard_cb = tf.keras.callbacks.TensorBoard(logdir, histogram_freq=0)
 checkpoint_cb = tf.keras.callbacks.ModelCheckpoint(model_file, verbose=0,
                                                     monitor='val_loss', mode='min', save_best_only=True)
 

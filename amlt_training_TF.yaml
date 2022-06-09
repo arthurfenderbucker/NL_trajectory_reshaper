@@ -11,6 +11,7 @@ environment:
   setup:
     - pip install tensorboard --user
     - pip install protobuf==3.20.* --user
+    - pip install azureml-core mlflow azureml-mlflow --user
 
 code:
   local_dir: $CONFIG_DIR/src
@@ -35,8 +36,8 @@ search:
     name: iros_{experiment_name:s}_{auto:3s}
     sku: G1
     command:
-    - python training_script_TF4D.py --exp_name TF4D_ds80k_act --activation {activation} --dataset_dir '/mnt/tumdata/data/' --models_path '/mnt/tumdata_out/models/'
-                                      --epochs {epochs} --lr {lr} --num_dec {num_dec} --num_enc {num_enc} --model_depth {model_depth}
+    - python training_script_TF4D.py --exp_name TF4D_embVec_enc_dec --dataset_dir '/mnt/tumdata/data/' --models_path '/mnt/tumdata_out/models/'
+                                      --epochs {epochs} --num_emb_vec {num_emb_vec} --lr {lr} --num_dec {num_dec} --num_enc {num_enc}
     # - python training_script_TF_continuos.py --exp_name 'no_feature' --dataset_dir '/mnt/tumdata/data/' --models_path '/mnt/tumdata/models/' --concat_emb {concat_emb} --dense_n {dense_n} --num_dense {num_dense} --dff {dff} --num_enc {num_enc} --num_dec {num_dec}
             # --bs {bs} --num_heads {num_heads}
                 # --epochs {epochs} --lr {lr} --num_enc {num_enc} --num_dec {num_dec} --num_heads {num_heads} --model_depth {model_depth} --dropout {dropout} --dff {dff}'
@@ -44,7 +45,7 @@ search:
       container_args:
         shm_size: 100g
   type: grid
-  max_trials: 16
+  max_trials: 12
   params:
     - name: lr
       values: [2e-4]
@@ -54,13 +55,13 @@ search:
       values: [1,3]
     - name: num_dec
       values: [3,5]
-    - name: model_depth
-      values: [256,400]
+    - name: num_emb_vec
+      values: [2,4,8]
+    # - name: model_depth
+    #   values: [256,400]
       
-    - name: activation
-      values: ["linear", "tanh"]
-    # - name: num_enc
-    #   values: [2,4]
+    # - name: activation
+    #   values: ["linear", "tanh"]
     # - name: model_depth
     #   values: [256]
       
