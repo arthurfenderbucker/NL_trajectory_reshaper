@@ -261,6 +261,7 @@ class MultiHeadAttention(tf.keras.layers.Layer):
         scores =tf.matmul(query, key, transpose_b=True)
         distribution = tf.nn.softmax(scores)
         self.distribution = distribution
+
             # print("yes")
         attention = self.join_permute_attention(attention)
         attention = self.join_reshape_attention(attention)

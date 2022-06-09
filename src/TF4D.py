@@ -72,6 +72,9 @@ class EncoderLayer(tf.keras.layers.Layer):
             'norm_layer':self.norm_layer
         })
         return config
+    
+    def build(self, input_shape):
+        super(EncoderLayer, self).build(input_shape)
 
     def call(self, inputs, mask=None, training=None):
         # print(mask)
@@ -141,6 +144,9 @@ class DecoderLayer(tf.keras.layers.Layer):
         })
         return config
 
+    def build(self, input_shape):
+        super(DecoderLayer, self).build(input_shape)
+
     def call(self, inputs, mask=None, training=None):
         # print(mask)
 
@@ -201,7 +207,10 @@ class MultiHeadAttention(tf.keras.layers.Layer):
         self.join_reshape_attention = tf.keras.layers.Reshape((-1, d_model))
 
         self.dense = tf.keras.layers.Dense(d_model)
-
+    
+    def build(self, input_shape):
+        super(MultiHeadAttention, self).build(input_shape)
+    
     def get_config(self):
         config = super(MultiHeadAttention, self).get_config()
         config.update({
@@ -273,6 +282,9 @@ class Encoder(tf.keras.layers.Layer):
 
         self.dropout = tf.keras.layers.Dropout(dropout)
 
+    def build(self, input_shape):
+        super(Encoder, self).build(input_shape)
+    
     def get_config(self):
         config = super(Encoder, self).get_config()
         config.update({
@@ -305,6 +317,9 @@ class Encoder(tf.keras.layers.Layer):
             x = encoder_layer(x)  # , mask = embedding_mask)
 
         return x
+    def model(self):
+        x = tf.keras.layers.Input(shape=(224, 224, 3))
+        return tf.keras.Model(inputs=[x], outputs=self.call(x))
 
     # def compute_mask(self, inputs, mask=None):
     #   return self.embedding_.compute_mask(inputs)
@@ -348,6 +363,8 @@ class Decoder(tf.keras.layers.Layer):
         })
         return config
 
+    def build(self, input_shape):
+        super(Decoder, self).build(input_shape)
     def call(self, inputs, mask=None, training=None):
 
         feature_vec = self.feature_embedding(inputs[2])
