@@ -65,7 +65,7 @@ delimiter ="-"
 traj_n = 40
 mr = Motion_refiner(load_models=False ,traj_n = traj_n)
 feature_indices, obj_sim_indices, obj_poses_indices, traj_indices = mr.get_indices()
-embedding_indices = np.concatenate([feature_indices,obj_sim_indices])
+embedding_indices = np.concatenate([feature_indices,obj_sim_indices, obj_poses_indices])
 
 
 # dataset_name = "4D_10000_objs_2to6_norm_"
@@ -131,6 +131,7 @@ n_samples, input_size = X.shape
 
 from TF4D_mult_features import *
 
+embedding_indices = np.concatenate([feature_indices,obj_sim_indices, obj_poses_indices])
 # embedding_indices = np.concatenate([feature_indices,obj_sim_indices])
 
 features_n = len(embedding_indices)
@@ -375,7 +376,7 @@ print("starting: ",model_name )
 
 
 
-earlly_stop_cb = tf.keras.callbacks.EarlyStopping(monitor='val_loss',  mode='min', verbose=2, patience=10)
+earlly_stop_cb = tf.keras.callbacks.EarlyStopping(monitor='val_loss',  mode='min', verbose=2, patience=30)
 tensorboard_cb = tf.keras.callbacks.TensorBoard(logdir, histogram_freq=0)
 checkpoint_cb = tf.keras.callbacks.ModelCheckpoint(model_file, verbose=0,
                                                     monitor='val_loss', mode='min', save_best_only=True)
@@ -451,7 +452,7 @@ print("-----      MODEL FINAL EVALUATION       ----")
 print(" ----------------------------------------")
 
 
-model = load_model(model_file,delimiter="-")
+model = load_model(model_file)
 # compile(model)
 evaluate_model(model, epoch = total_epochs+1)
 

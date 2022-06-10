@@ -1,4 +1,4 @@
-description: CORL Trajectories
+description: CORL Distributed trajectories generation 
 
 target:
   service: aml
@@ -12,6 +12,7 @@ environment:
     - pip install tensorboard --user
     - pip install protobuf==3.20.* --user
     - pip install azureml-core mlflow azureml-mlflow --user
+    - pip install sentencepiece --user
 
 code:
   local_dir: $CONFIG_DIR/src
@@ -36,8 +37,9 @@ search:
     name: iros_{experiment_name:s}_{auto:3s}
     sku: G1
     command:
-    - python training_script_TF4D.py --exp_name TF4D_embVec_depth --dataset_dir '/mnt/tumdata/data/' --models_path '/mnt/tumdata_out/models/'
-                                      --epochs {epochs} --model_depth {model_depth} --num_emb_vec {num_emb_vec} --lr {lr} --num_dec {num_dec} --num_enc {num_enc}
+    - python data_generator_script.py --prefix {prefix} --n_map 5000 --labels_per_map 1 --threads 20 --exp_name 'ditributed' 
+                                      --dataset_dir '/mnt/tumdata/data/' --image_dataset_dir '/mnt/tumdata/image_dataset/'
+
     # - python training_script_TF_continuos.py --exp_name 'no_feature' --dataset_dir '/mnt/tumdata/data/' --models_path '/mnt/tumdata/models/' --concat_emb {concat_emb} --dense_n {dense_n} --num_dense {num_dense} --dff {dff} --num_enc {num_enc} --num_dec {num_dec}
             # --bs {bs} --num_heads {num_heads}
                 # --epochs {epochs} --lr {lr} --num_enc {num_enc} --num_dec {num_dec} --num_heads {num_heads} --model_depth {model_depth} --dropout {dropout} --dff {dff}'
@@ -45,20 +47,10 @@ search:
       container_args:
         shm_size: 100g
   type: grid
-  max_trials: 6
+  max_trials: 10
   params:
-    - name: lr
-      values: [2e-4]
-    - name: epochs
-      values: [100]
-    - name: num_enc
-      values: [1]
-    - name: num_dec
-      values: [5]
-    - name: num_emb_vec
-      values: [1,2,4]
-    - name: model_depth
-      values: [256,400]
+    - name: prefix
+      values: ['0','1','2','3','4','5','6','7','8','9']
       
     # - name: activation
     #   values: ["linear", "tanh"]

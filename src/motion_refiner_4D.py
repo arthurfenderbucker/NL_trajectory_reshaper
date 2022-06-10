@@ -32,7 +32,7 @@ base_path = "data/"
 
 
 class Motion_refiner():
-    def __init__(self, traj_n=10, verbose=0, load_models=True):
+    def __init__(self, traj_n=10, verbose=0, load_models=True, locality_factor=True):
         """
         traj_n: max num of waypoints for the interpolated trajectory
         verbose: 0 = none, 1 = prints
@@ -58,6 +58,9 @@ class Motion_refiner():
 
 
         self.bert_n = 768
+        if locality_factor:
+            self.bert_n += 1 #appending locality factor
+
         self.n_objs = MAX_NUM_OBJS
         self.dim = 4
         
@@ -363,7 +366,8 @@ class Motion_refiner():
             sim = pad_array(np.array(d['similarity'][0]),MAX_NUM_OBJS,axis=-1)
             obj_poses = pad_array(np.array(d["obj_poses"]),MAX_NUM_OBJS,axis=0)
             # sim = sim_mask
-            x = np.concatenate([sim, obj_poses.flatten(order="F"), x_i, y_i, z_i, vel_i], axis=0)
+            locality_factor= np.array([d["locality_factor"]])
+            x = np.concatenate([locality_factor, sim, obj_poses.flatten(order="F"), x_i, y_i, z_i, vel_i], axis=0)
             X_list.append(x)
         print("DONE - concatenating ")
 
@@ -382,7 +386,7 @@ class Motion_refiner():
     def apply_interaction(self, model, d, text,  label=False):
         data_new = []
         data_new.append({"input_traj": d["input_traj"], "output_traj": d["output_traj"], "text": text, "obj_names": d["obj_names"],
-                        "obj_poses": d["obj_poses"]})
+                        "obj_poses": d["obj_poses"],"locality_factor":d["locality_factor"],"image_paths":d["image_paths"]})
 
         X, _ = self.prepare_data(data_new, label=label)
 

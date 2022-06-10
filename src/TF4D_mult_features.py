@@ -352,7 +352,7 @@ class Decoder(tf.keras.layers.Layer):
 
         # self.embedding_ = tf.keras.layers.Embedding(target_vocab_size, d_model, mask_zero=True)
         self.embedding_ = tf.keras.layers.Dense(
-            d_model, activation=None, use_bias=False)  # only weights multiplication
+            d_model, activation="relu", use_bias=False)  # only weights multiplication
         # self.pos = positional_encoding(maximum_position_encoding, d_model)
         self.pos_emb = tf.keras.layers.Embedding(
             input_dim=maximum_position_encoding, output_dim=d_model)
@@ -440,7 +440,9 @@ class Decoder(tf.keras.layers.Layer):
     #     return self._att_weights
 
 
-def get_model(features_n=777, num_layers_enc=2, num_layers_dec=2,num_dense=3,dense_n=256, d_model=128, dff=512, num_heads=8, dropout_rate=0.1, wp_d=4,bs=32, concat_emb=False, optimizer="adam",norm_layer=True,activation="linear", max_traj_len = 100, num_emb_vec=4):
+def get_model(features_n=777, num_layers_enc=2, num_layers_dec=2,num_dense=3,dense_n=256, d_model=128, dff=512, num_heads=8,
+             dropout_rate=0.1, wp_d=4,bs=32,
+                concat_emb=False, optimizer="adam",norm_layer=True,activation="linear", max_traj_len = 100, num_emb_vec=4):
 
     # Size of input vocab plus start and end tokens
     input_vocab_size = wp_d

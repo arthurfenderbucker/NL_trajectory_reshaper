@@ -1,0 +1,26 @@
+Results:
+
+datset: 4D_80000
+  naive predictor
+  0.005762455522215233
+  MSE naive cartesian: 0.001543657398243346
+  MSE model cartesian: 0.0010771771976181498
+  MSE naive vel: 0.01841884989413089
+  MSE model vel: 0.008454320515824535
+
+  models:
+  # from src.TF4D_ import *
+  # model_path = "/home/tum/data/models/TF4D_enc_dec_d/"
+  # model_name =  "TF&num_layers_enc:1&num_layers_dec:5&d_model:400&dff:512&num_heads:8&dropout_rate:0.1&wp_d:4&bs:16&dense_n:512&num_dense:3&concat_emb:True&features_n:792&optimizer:adam&norm_layer:True&activation:tanh.h5"
+  # test_ mean_squared_error: 1.2797e-04
+  Test loss w generation:  0.002921463027169744
+  Total params: 18,988,452
+
+  # from src.TF4D_mult_features import *
+  # model_path = "/home/tum/data/models/TF4D_embVec_enc_dec/"
+  # model_name =  "TF-num_layers_enc:1-num_layers_dec:5-d_model:256-dff:512-num_heads:8-dropout_rate:0.1-wp_d:4-num_emb_vec:8-bs:16-dense_n:512-num_dense:3-concat_emb:True-features_n:792-optimizer:adam-norm_layer:True-activation:linear.h5"
+  mean_squared_error: 1.4682e-04
+  Test loss w generation:  0.003885630199726031
+  Total params: 7,218,180
+
+  

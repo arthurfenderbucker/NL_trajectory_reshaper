@@ -8,6 +8,7 @@ import tensorflow as tf
 import matplotlib
 from matplotlib import cm
 from mpl_toolkits.axes_grid1 import ImageGrid
+from tqdm import tqdm
 
 
 # ================= plot functions ====================
@@ -610,7 +611,7 @@ def generate(model, source, traj_n=10, start_index=3):
     traj, shifted_target, features = source
     bs = tf.shape(traj)[0]
     dec_input = traj[:, start_index:start_index+1, :]  # tf.ones((bs, 1,2)) * init_dec_input
-    for i in range(traj_n - 1):
+    for i in tqdm(range(traj_n - 1)):
         dec_out = model.predict([traj, dec_input, features])
         dec_input = tf.concat([dec_input, dec_out[:, -1:, :]], axis=1)
     return dec_input
