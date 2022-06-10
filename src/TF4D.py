@@ -405,8 +405,9 @@ class Decoder(tf.keras.layers.Layer):
 
         return x
 
+def get_model(features_n=777, num_layers_enc=2, num_layers_dec=2,num_dense=3,dense_n=256, d_model=128, dff=512, num_heads=8, dropout_rate=0.1, wp_d=4,bs=32, concat_emb=False, optimizer="adam",norm_layer=True,activation="linear", max_traj_len = 100, num_emb_vec=4):
 
-def get_model(features_n=777, num_layers_enc=2, num_layers_dec=2,num_dense=3,dense_n=256, d_model=128, dff=512, num_heads=8, dropout_rate=0.1, wp_d=4,bs=32, concat_emb=False, optimizer="adam",norm_layer=True,activation="tanh"):
+# def get_model(features_n=777, num_layers_enc=2, num_layers_dec=2,num_dense=3,dense_n=256, d_model=128, dff=512, num_heads=8, dropout_rate=0.1, wp_d=4,bs=32, concat_emb=False, optimizer="adam",norm_layer=True,activation="tanh"):
 
     # Size of input vocab plus start and end tokens
     input_vocab_size = wp_d

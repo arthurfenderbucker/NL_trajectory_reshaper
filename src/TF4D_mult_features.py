@@ -208,7 +208,7 @@ class MultiHeadAttention(tf.keras.layers.Layer):
         self.join_reshape_attention = tf.keras.layers.Reshape((-1, d_model))
 
         self.dense = tf.keras.layers.Dense(d_model)
-    
+        # self.distribution = None
     def build(self, input_shape):
         super(MultiHeadAttention, self).build(input_shape)
     
@@ -228,6 +228,7 @@ class MultiHeadAttention(tf.keras.layers.Layer):
             'join_permute_attention': self.join_permute_attention,
             'join_reshape_attention': self.join_reshape_attention,
             'dense': self.dense
+            # 'distribution':self.distribution
         })
         return config
 
@@ -258,9 +259,9 @@ class MultiHeadAttention(tf.keras.layers.Layer):
 
         attention = self.attention([query, value, key], mask=mask)
 
-        scores =tf.matmul(query, key, transpose_b=True)
-        distribution = tf.nn.softmax(scores)
-        self.distribution = distribution
+        # scores =tf.matmul(query, key, transpose_b=True)
+        # distribution = tf.nn.softmax(scores)
+        # self.distribution = distribution
             # print("yes")
         attention = self.join_permute_attention(attention)
         attention = self.join_reshape_attention(attention)
@@ -269,11 +270,11 @@ class MultiHeadAttention(tf.keras.layers.Layer):
 
         return x
 
-    def model(self):
-        x = tf.keras.layers.Input(shape=(None, 4))
-        return tf.keras.Model(inputs=[x], outputs=self.distribution)
+    # def model(self):
+    #     x = tf.keras.layers.Input(shape=(None, 4))
+    #     return tf.keras.Model(inputs=[x], outputs=self.distribution)
 
-class Encoder(tf.keras.Model):
+class Encoder(tf.keras.layers.Layer):
     def __init__(self, input_vocab_size=4, num_layers=4, d_model=512, num_heads=8, dff=2048, maximum_position_encoding=100, dropout=0.0, norm_layer=True, **kwargs):
         super(Encoder, self).__init__(**kwargs)
 
@@ -288,6 +289,7 @@ class Encoder(tf.keras.Model):
 
         self.encoder_layers = [EncoderLayer(
             d_model=d_model, num_heads=num_heads, dff=dff, dropout=dropout, norm_layer=norm_layer) for _ in range(num_layers)]
+        # self.att_weights = [None] * len(self.encoder_layers)
 
         self.dropout = tf.keras.layers.Dropout(dropout)
 
@@ -323,17 +325,17 @@ class Encoder(tf.keras.Model):
 
         # Encoder layer
         # embedding_mask = self.embedding_.compute_mask(inputs)
-        self.att_weights = [None] * len(self.encoder_layers)
+        # self.att_weights = [None] * len(self.encoder_layers)
         for i, encoder_layer in enumerate(self.encoder_layers):
             x = encoder_layer(x)  # , mask = embedding_mask)
             # self.att_weights[i] = encoder_layer.multi_head_attention.attention.weights
-            self.att_weights[i] = encoder_layer.multi_head_attention.distribution
+            # self.att_weights[i] = encoder_layer.multi_head_attention.distribution
 
 
         return x
-    def model(self):
-        x = tf.keras.layers.Input(shape=(None, 4))
-        return tf.keras.Model(inputs=[x], outputs=self.call(x))
+    # def model(self):
+    #     x = tf.keras.layers.Input(shape=(None, 4))
+    #     return tf.keras.Model(inputs=[x], outputs=self.call(x))
 
     # def compute_mask(self, inputs, mask=None):
     #   return self.embedding_.compute_mask(inputs)
@@ -350,7 +352,7 @@ class Decoder(tf.keras.layers.Layer):
 
         # self.embedding_ = tf.keras.layers.Embedding(target_vocab_size, d_model, mask_zero=True)
         self.embedding_ = tf.keras.layers.Dense(
-            d_model, activation=None, use_bias=False)  # only weights multiplication
+            d_model, activation="relu", use_bias=False)  # only weights multiplication
         # self.pos = positional_encoding(maximum_position_encoding, d_model)
         self.pos_emb = tf.keras.layers.Embedding(
             input_dim=maximum_position_encoding, output_dim=d_model)
@@ -361,6 +363,7 @@ class Decoder(tf.keras.layers.Layer):
         self.dropout = tf.keras.layers.Dropout(dropout)
         self.concat = tf.keras.layers.Concatenate(axis=1)
         self.reshape_fatures = tf.keras.layers.Reshape((-1, 1, d_model))
+        # self._att_weights = [[None] * len(self.decoder_layers) for _ in range (2)]
 
     def get_config(self):
         config = super(Decoder, self).get_config()
@@ -374,6 +377,8 @@ class Decoder(tf.keras.layers.Layer):
             'concat':self.concat,
             'reshape_fatures':self.reshape_fatures,
             'norm_layer':self.norm_layer
+            # 'att_weights':self._att_weights
+
         })
         return config
 
@@ -381,12 +386,15 @@ class Decoder(tf.keras.layers.Layer):
         super(Decoder, self).build(input_shape)
     def call(self, inputs, mask=None, training=None):
 
-        emb = inputs[1]
+        feature_vec = self.feature_embeddings[0](inputs[2])
+        feature_vec = tf.expand_dims(feature_vec, axis=1)
+        emb = self.concat([inputs[1],feature_vec]) #appends feature vector
         
-        for feature_emb in self.feature_embeddings:
+        for feature_emb in self.feature_embeddings[1:]:
             feature_vec = feature_emb(inputs[2])
             feature_vec = tf.expand_dims(feature_vec, axis=1)
             emb = self.concat([emb,feature_vec]) #appends feature vector
+            
 
             
 
@@ -415,24 +423,26 @@ class Decoder(tf.keras.layers.Layer):
 
         # K.print_tensor(tf.shape(emb), message='emb')
 
-        self._att_weights = [[None] * len(self.decoder_layers) for _ in range (2)]
+        # self._att_weights = [[None] * len(self.decoder_layers) for _ in range (2)]
         for i,decoder_layer in enumerate(self.decoder_layers):
             # x += feature_vec
 
             x = decoder_layer([x, emb], mask=[embedding_mask, mask])
-            self._att_weights[0][i] = decoder_layer.multi_head_attention1.distribution
-            self._att_weights[1][i] = decoder_layer.multi_head_attention2.distribution
+            # self._att_weights[0][i] = decoder_layer.multi_head_attention1.distribution
+            # self._att_weights[1][i] = decoder_layer.multi_head_attention2.distribution
 
 
             # x = decoder_layer([x, inputs[1]], mask=[embedding_mask, mask])
 
         return x
-    @property
-    def attention_weights(self):
-        return self._att_weights
+    # @property
+    # def attention_weights(self):
+    #     return self._att_weights
 
 
-def get_model(features_n=777, num_layers_enc=2, num_layers_dec=2,num_dense=3,dense_n=256, d_model=128, dff=512, num_heads=8, dropout_rate=0.1, wp_d=4,bs=32, concat_emb=False, optimizer="adam",norm_layer=True,activation="linear", max_traj_len = 100, num_emb_vec=4):
+def get_model(features_n=777, num_layers_enc=2, num_layers_dec=2,num_dense=3,dense_n=256, d_model=128, dff=512, num_heads=8,
+             dropout_rate=0.1, wp_d=4,bs=32,
+                concat_emb=False, optimizer="adam",norm_layer=True,activation="linear", max_traj_len = 100, num_emb_vec=4):
 
     # Size of input vocab plus start and end tokens
     input_vocab_size = wp_d
