@@ -63,7 +63,7 @@ delimiter ="-"
 
 
 traj_n = 40
-mr = Motion_refiner(load_models=False ,traj_n = traj_n)
+mr = Motion_refiner(load_models=False ,traj_n = traj_n,locality_factor=False)
 feature_indices, obj_sim_indices, obj_poses_indices, traj_indices = mr.get_indices()
 embedding_indices = np.concatenate([feature_indices,obj_sim_indices])
 
@@ -339,7 +339,7 @@ def evaluate_model(model, epoch):
 
     g = generator(test_dataset,stop=True,augment=False)
     x_t, y_t = next(g)
-    pred = generate(model ,x_t, traj_n=traj_n).numpy()
+    pred = generate(model ,x_t, traj_n=traj_n,start_index=6).numpy()
     print(pred.shape)
     result_gen = np.average((y_t - pred[:,1:,:])**2)
     print("Test loss w generation: ",result_gen)
@@ -407,6 +407,16 @@ if args.lr != 0.0 and args.epochs != 0 :
 
 
 print("\nlr_schedule: ", lr_schedule)
+
+
+
+
+Y_t = list_to_wp_seq(y_train,d=4)
+X_t = ((prepare_x(X_train),Y_tt[:,:-1], X_train[:,embedding_indices]),Y_t[:,1:])
+
+Y_v = list_to_wp_seq(y_train,d=4)
+X_v = ((prepare_x(X_valid),Y_t[:,:-1], X_valid[:,embedding_indices]),Y_v[:,1:])
+
 for lr,ep in lr_schedule:
     # TRAIN
     initial_epoch = model.optimizer.iterations.numpy() // num_batches
@@ -417,9 +427,13 @@ for lr,ep in lr_schedule:
 
     K.set_value(model.optimizer.learning_rate, lr)
     # data_tf = generator(train_dataset)
-    history = model.fit(x = generator(train_dataset, augment = augment) ,epochs=initial_epoch+ep, steps_per_epoch = num_batches, verbose=0,
+    # history = model.fit(x = generator(train_dataset, augment = augment) ,epochs=initial_epoch+ep, steps_per_epoch = num_batches, verbose=0,
+    #                     callbacks=[earlly_stop_cb, tensorboard_cb, checkpoint_cb], initial_epoch=initial_epoch,
+    #                     validation_data = generator(val_dataset, augment = augment), validation_steps = val_batches
+    
+    history = model.fit(x = X_t,batch_size=bs,epochs=initial_epoch+ep, verbose=0,
                         callbacks=[earlly_stop_cb, tensorboard_cb, checkpoint_cb], initial_epoch=initial_epoch,
-                        validation_data = generator(val_dataset, augment = augment), validation_steps = val_batches)
+                        validation_data = X_v )
     
     # history = model.fit(x = (x_train_new, y_train_new[:,:-1,:], emb_train_new), y = y_train_new[:,1:,:], epochs=initial_epoch+ep, initial_epoch=initial_epoch,
     #                          validation_data = ((x_valid_new, y_valid_new[:,:-1,:], emb_valid_new), y_valid_new[:,1:,:]),
@@ -484,6 +498,7 @@ if refine:
     history = model.fit(x = generator(train_dataset,augment=False) ,epochs=initial_epoch+ep, steps_per_epoch = num_batches, verbose=0,
                         callbacks=[earlly_stop_cb, tensorboard_cb, checkpoint_cb], initial_epoch=initial_epoch,
                         validation_data = generator(val_dataset,augment=False), validation_steps = val_batches)
+    
 
 
     new_model = load_model(model_file)

@@ -100,12 +100,13 @@ def generate_traj(n_wp = 40, N=100,n_int= 10,margin=0.4,show=False):
     vel_min = np.min(velint,axis = 0)
     vel_max = np.max(velint,axis = 0)
     vel_norm = np.max(np.abs(vel_max-vel_min))
-    vel = ((velint-vel_min)/vel_norm)*(1-margin)+margin/2-0.5
+    vel = ((vel-(vel_max-vel_min)/2)/vel_norm)*(1-margin)
+
 
     pts_min = np.min(pts,axis = 0)
     pts_max = np.max(pts,axis = 0)
     norm = np.max(np.abs(pts_max-pts_min))
-    pts  = ((pts-pts_min)/norm)*(1-margin)+margin/2-0.5
+    pts  = ((pts-(pts_max-pts_min)/2)/norm)*(1-margin)
 
     if show:
         ax = plt.subplot(1,1,1, projection='3d')

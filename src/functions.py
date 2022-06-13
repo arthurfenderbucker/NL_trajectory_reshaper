@@ -240,7 +240,8 @@ def plot_dist(x):
 
 def show_data4D(d_,image_loader= None,pred=None, show=True,color_traj=True, obj_txt=False,arrows=True,file = "", cmap=None,
         n_col = 2, obj_c ="#363634", grid_c="#cfcfcf",ref_c = "#d10808", label_c = "#3082e6", pred_c = "#2dd100", delta_c = "#e3d64b",
-        fig_mult=3,new_fig = True, n=3, abs_pred=False,  show_label=True, show_interpolated=False, show_original=True):
+        fig_mult=3,new_fig = True, n=3, abs_pred=False,  show_label=True, show_interpolated=False, show_original=True,
+        change_img_base=None):
 
     # if isinstance(pred, np.ndarray) and len(pred.shape) > 2:
     #     print("reshaping")
@@ -278,23 +279,27 @@ def show_data4D(d_,image_loader= None,pred=None, show=True,color_traj=True, obj_
         text = d["text"]
         obj_names = np.asarray(d["obj_names"])
         obj_pt = np.asarray(d["obj_poses"])
-        obj_classes = np.asarray(d["obj_classes"])
-        obj = d["obj_in_text"]
-        lg_ct = d["change_type"]
-        mi = d["map_id"]
+        # obj_classes = np.asarray(d["obj_classes"])
+        # obj = d["obj_in_text"]
+        # lg_ct = d["change_type"]
+        # mi = d["map_id"]
         image_paths = d["image_paths"]
 
-        # print(pts.shape, obj_classes)
+        if not change_img_base is None:
+            for ti in range(len(image_paths)):
+                image_paths[ti] = image_paths[ti].replace(change_img_base[0], change_img_base[1])
 
         objs  = {}
         for x,y,z,name in zip(obj_pt[:,0],obj_pt[:,1],obj_pt[:,2],obj_names):
             objs[name] = {"value":{"obj_p":[x,y,z]}}
 
-
         new_pts_list = [pts_new]
+        if d["output_traj"] is None:
+            new_pts_list = []
+
         if not pred is None:
             new_pts_list.append(pred[i])
-
+        print(new_pts_list)
         # images_path = "/home/mirmi/Arthur/dataset/"
         # objs_img_base_paths = [images_path+c+"/"+n for c,n in zip(obj_classes,obj_names)]
 
@@ -329,7 +334,7 @@ def plot3Dcolor(x, y, z, c, ax=None, cmap=None, **args):
 
     
 
-def plot_samples(text,pts,pts_new_list, images=[], fig=None,objs=None, colors = ["#03b300","#0071b3", "#1e0191"],
+def plot_samples(text,pts,pts_new_list, images=[], fig=None,objs=None, colors = ["#0071b3", "#1e0191"],
                 plot_voxels= False, color_traj = False, map_cost_f=None, labels=[]):
     
     start_color = "red"
@@ -354,10 +359,9 @@ def plot_samples(text,pts,pts_new_list, images=[], fig=None,objs=None, colors = 
 
 
     ax2 = fig.add_subplot(9,2,18)
-    ax2.plot(np.arange(len(vel_init)),vel_init,color="red",label="original")
+    ax2.plot(np.arange(len(vel_init)),vel_init+1,color="red",label="original")
 
     for i, pts_new in enumerate(pts_new_list):
-
         x_new, y_new, z_new, vel_new = pts_new[:,0],pts_new[:,1],pts_new[:,2],pts_new[:,3]
 
         color = colors[i] if i < len(colors)-1 else "#"+''.join([random.choice('0123456789ABCDEF') for j in range(6)])    
@@ -369,11 +373,11 @@ def plot_samples(text,pts,pts_new_list, images=[], fig=None,objs=None, colors = 
         
         
         
-        ax2.plot(np.arange(len(vel_init)),vel_new,color=color, label=labels[i])
+        ax2.plot(np.arange(len(vel_init)),vel_new+1,color=color, label=labels[i])
         ax2.set_xlabel('waypoints')
         ax2.set_ylabel('speed')
 
-        ax2.set_title("speed change")
+        ax2.set_title("speed profile")
         
         ax.scatter(x_new[:-1], y_new[:-1], z_new[:-1],alpha=0.9,color=color) #alpha sets the darkness of the path.
 
@@ -399,13 +403,13 @@ def plot_samples(text,pts,pts_new_list, images=[], fig=None,objs=None, colors = 
     ax.set_ylabel('Y axis')
     ax.set_zlabel('Z axis')
     ax.set_title(text)
-
     if not objs is None:
         for name,v in objs.items():
             x,y,z = v["value"]["obj_p"]
             ax.scatter(x,y,z)
             ax.text(x, y, z, name, 'x')
     
+    set_axes_equal(ax)
     img_ax = []
     # im1 = np.arange(100).reshape((10, 10))
     # im2 = im1.T
@@ -437,7 +441,33 @@ def plot_samples(text,pts,pts_new_list, images=[], fig=None,objs=None, colors = 
     plt.show()
 
 
+def set_axes_equal(ax):
+    '''Make axes of 3D plot have equal scale so that spheres appear as spheres,
+    cubes as cubes, etc..  This is one possible solution to Matplotlib's
+    ax.set_aspect('equal') and ax.axis('equal') not working for 3D.
 
+    Input
+      ax: a matplotlib axis, e.g., as output from plt.gca().
+    '''
+
+    x_limits = ax.get_xlim3d()
+    y_limits = ax.get_ylim3d()
+    z_limits = ax.get_zlim3d()
+
+    x_range = abs(x_limits[1] - x_limits[0])
+    x_middle = np.mean(x_limits)
+    y_range = abs(y_limits[1] - y_limits[0])
+    y_middle = np.mean(y_limits)
+    z_range = abs(z_limits[1] - z_limits[0])
+    z_middle = np.mean(z_limits)
+
+    # The plot bounding box is a sphere in the sense of the infinity
+    # norm, hence I call half the max range the plot radius.
+    plot_radius = 0.5*max([x_range, y_range, z_range])
+
+    ax.set_xlim3d([x_middle - plot_radius, x_middle + plot_radius])
+    ax.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
+    ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
 
 
 
@@ -516,10 +546,10 @@ def augment_xy(x, y, width_shift_range=0.1, height_shift_range=0.1, rotation_ran
 
 # ============= trajectories functions ===============
 
-def np2data(input_traj, obj_names, obj_poses, text, output_traj=None):
+def np2data(input_traj, obj_names, obj_poses, text, output_traj=None, locality_factor=0.5, image_paths=None):
     data = []
     data.append({"input_traj": input_traj, "output_traj": output_traj, "text": text, "obj_names": obj_names,
-                 "obj_poses": obj_poses})
+                 "obj_poses": obj_poses, "locality_factor":locality_factor, "image_paths":image_paths})
     return data
 
 
@@ -606,7 +636,7 @@ def tokenize(y, n_classes=1002):
     return out.astype('int32')
 
 
-def generate(model, source, traj_n=10, start_index=3):
+def generate(model, source, traj_n=10, start_index=6):
     """Performs inference over one batch of inputs using greedy decoding."""
     traj, shifted_target, features = source
     bs = tf.shape(traj)[0]

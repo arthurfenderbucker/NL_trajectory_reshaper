@@ -56,7 +56,7 @@ class Motion_refiner():
             print("done")
 
 
-
+        self.locality_factor = locality_factor
         self.bert_n = 768
         if locality_factor:
             self.bert_n += 1 #appending locality factor
@@ -310,20 +310,20 @@ class Motion_refiner():
     def get_indices(self):
         return self.feature_indices, self.obj_sim_indices, self.obj_poses_indices, self.traj_indices
 
-    def prepare_data(self, data, deltas=False, label=True, interpolation="spline", verbose=1):
+    def prepare_data(self, data, deltas=False, label=True, interpolation="spline", verbose=0):
         """Preprocess dataset"""
 
         # compute embeddings and similarity
         text_features = self.compute_bert_embeding(data)
         # text_features = self.compute_embeding(data,self.pipe_bert)
-        for i, d in tqdm(enumerate(data)):
+        for i, d in tqdm(enumerate(data), disable=verbose):
             d["token_obj_name"], d["token_clip_text"], d['similarity'] = self.compute_clip_similarity(
                 d["obj_names"], [d["text"]], images_path = d["image_paths"])
         print("DONE - computing embeddings and similarity vectors ")
         X_list = []
         Y_list = []
         # prepare data
-        for i, d in tqdm(enumerate(data)):
+        for i, d in tqdm(enumerate(data), disable=verbose):
             traj = np.array(d["input_traj"])
             x_i, y_i, z_i, vel_i = traj[:,0],traj[:,1],traj[:,2], traj[:,3]
             
@@ -364,10 +364,13 @@ class Motion_refiner():
             # print("----------------------------------")
 
             sim = pad_array(np.array(d['similarity'][0]),MAX_NUM_OBJS,axis=-1)
-            obj_poses = pad_array(np.array(d["obj_poses"]),MAX_NUM_OBJS,axis=0)
+            obj_poses = pad_array(np.asarray(d["obj_poses"]),MAX_NUM_OBJS,axis=0)
+            print(obj_poses)
             # sim = sim_mask
-            locality_factor= np.array([d["locality_factor"]])
-            x = np.concatenate([locality_factor, sim, obj_poses.flatten(order="F"), x_i, y_i, z_i, vel_i], axis=0)
+            if self.locality_factor:
+                locality_factor= np.array([d["locality_factor"]])
+                sim = np.concatenate([locality_factor,sim], axis=0)
+            x = np.concatenate([sim, obj_poses.flatten(order="F"), x_i, y_i, z_i, vel_i], axis=0)
             X_list.append(x)
         print("DONE - concatenating ")
 
@@ -379,7 +382,7 @@ class Motion_refiner():
         return X, Y
 
     def prepare_x(self, x):
-        objs = list_to_wp_seq(x[:, self.obj_poses_indices],d=4)
+        objs = pad_array(list_to_wp_seq(x[:,self.obj_poses_indices],d=3),4,axis=-1)
         trajs = list_to_wp_seq(x[:, self.traj_indices],d=4)
         return np.concatenate([objs, trajs], axis=1)
 
@@ -388,13 +391,13 @@ class Motion_refiner():
         data_new.append({"input_traj": d["input_traj"], "output_traj": d["output_traj"], "text": text, "obj_names": d["obj_names"],
                         "obj_poses": d["obj_poses"],"locality_factor":d["locality_factor"],"image_paths":d["image_paths"]})
 
-        X, _ = self.prepare_data(data_new, label=label)
-
+        X, _ = self.prepare_data(data_new, label=label,  verbose=True)
+        print(X.shape)
         traj = list_to_wp_seq(X[:, self.traj_indices],d=4)
         traj_and_obj = self.prepare_x(X)
         emb = X[:, self.embedding_indices]
         source = [traj_and_obj, None, emb]
-        pred_new = generate(model, source).numpy()
+        pred_new = generate(model, source, traj_n=self.traj_n, start_index=MAX_NUM_OBJS).numpy()
         return pred_new, traj
 
     def evaluate_obj_matching(self, data):
