@@ -32,7 +32,7 @@ base_path = "data/"
 
 
 class Motion_refiner():
-    def __init__(self, traj_n=10, verbose=0, load_models=True, locality_factor=True):
+    def __init__(self, traj_n=10, verbose=0, load_models=True, locality_factor=True, poses_on_features=True):
         """
         traj_n: max num of waypoints for the interpolated trajectory
         verbose: 0 = none, 1 = prints
@@ -68,12 +68,16 @@ class Motion_refiner():
         self.obj_sim_indices = np.array(
             range(self.bert_n, self.bert_n+self.n_objs))
         self.obj_poses_indices = np.array(
-            range(self.bert_n+self.n_objs, self.bert_n+self.n_objs*4))
+            range(self.bert_n+self.n_objs, self.bert_n+self.n_objs*(3+1)))
         self.traj_indices = np.array(
-            range(self.bert_n+self.n_objs*4, self.bert_n+self.n_objs*4+self.traj_n*self.dim))
+            range(self.bert_n+self.n_objs*4, self.bert_n+self.n_objs*(3+1)+self.traj_n*self.dim))
 
-        self.embedding_indices = np.concatenate(
-            [self.feature_indices, self.obj_sim_indices, self.obj_poses_indices])
+        if poses_on_features:
+            self.embedding_indices = np.concatenate(
+                [self.feature_indices, self.obj_sim_indices, self.obj_poses_indices])
+        else:
+            self.embedding_indices = np.concatenate(
+                [self.feature_indices, self.obj_sim_indices])
 
     def load_bert(self, verbose=0):
         """load a pre-trained BERT model (DistilBERT)"""
@@ -310,15 +314,25 @@ class Motion_refiner():
     def get_indices(self):
         return self.feature_indices, self.obj_sim_indices, self.obj_poses_indices, self.traj_indices
 
-    def prepare_data(self, data, deltas=False, label=True, interpolation="spline", verbose=0):
+    def prepare_data(self, data, deltas=False, label=True, interpolation="spline", verbose=1,change_img_base=None):
         """Preprocess dataset"""
 
         # compute embeddings and similarity
         text_features = self.compute_bert_embeding(data)
         # text_features = self.compute_embeding(data,self.pipe_bert)
-        for i, d in tqdm(enumerate(data), disable=verbose):
+
+
+        for i, d in tqdm(enumerate(data)):
+
+        
+            image_paths = d["image_paths"]
+
+            if not change_img_base is None:
+                for ti in range(len(image_paths)):
+                    image_paths[ti] = image_paths[ti].replace(change_img_base[0], change_img_base[1])
+
             d["token_obj_name"], d["token_clip_text"], d['similarity'] = self.compute_clip_similarity(
-                d["obj_names"], [d["text"]], images_path = d["image_paths"])
+                d["obj_names"], [d["text"]], images_path = image_paths)
         print("DONE - computing embeddings and similarity vectors ")
         X_list = []
         Y_list = []

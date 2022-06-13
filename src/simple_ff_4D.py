@@ -14,8 +14,11 @@ import re
 
 import os
 
-def get_model(features_n=777,input_size=797, num_layers_enc=2, num_layers_dec=2,num_dense=3,dense_n=256, d_model=128, dff=512, num_heads=8, dropout_rate=0.1, wp_d=2,bs=32, concat_emb=False, optimizer="adam",norm_layer=True,activation="tanh"):
+# def get_model(features_n=777,input_size=797, num_layers_enc=2, num_layers_dec=2,num_dense=3,dense_n=256, d_model=128, dff=512, num_heads=8, dropout_rate=0.1, wp_d=2,bs=32, concat_emb=False, optimizer="adam",norm_layer=True,activation="tanh"):
 
+def get_model(input_size=797, features_n=777, num_layers_enc=2, num_layers_dec=2,num_dense=3,dense_n=256, d_model=128, dff=512, num_heads=8,
+             dropout_rate=0.1, wp_d=4,bs=32,ds_size_factor=1.0,augment=0,traj_n=40,
+                concat_emb=False, optimizer="adam",norm_layer=True,activation="linear", max_traj_len = 100, num_emb_vec=4):
 
     model = Sequential()
     model.add(Dense(dense_n*2, input_dim=input_size, activation='relu'))
@@ -23,7 +26,7 @@ def get_model(features_n=777,input_size=797, num_layers_enc=2, num_layers_dec=2,
     for i in range(num_dense):
         model.add(Dense(dense_n, activation='relu'))
         model.add(Dropout(dropout_rate))
-    model.add(Dense(10*2, activation=activation))
+    model.add(Dense(traj_n*wp_d, activation=activation))
     compile(model, optimizer=optimizer)
 
     return model

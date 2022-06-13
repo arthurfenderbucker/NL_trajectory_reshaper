@@ -321,7 +321,7 @@ class Encoder(tf.keras.layers.Layer):
 
         # x += self.pos[: , :tf.shape(x)[1], :]
 
-        x = self.dropout(x, training=training)
+        x = self.dropout(x, training=training)  
 
         # Encoder layer
         # embedding_mask = self.embedding_.compute_mask(inputs)
@@ -441,7 +441,7 @@ class Decoder(tf.keras.layers.Layer):
 
 
 def get_model(features_n=777, num_layers_enc=2, num_layers_dec=2,num_dense=3,dense_n=256, d_model=128, dff=512, num_heads=8,
-             dropout_rate=0.1, wp_d=4,bs=32,
+             dropout_rate=0.1, wp_d=4,bs=32,ds_size_factor=1.0,augment=0,
                 concat_emb=False, optimizer="adam",norm_layer=True,activation="linear", max_traj_len = 100, num_emb_vec=4):
 
     # Size of input vocab plus start and end tokens

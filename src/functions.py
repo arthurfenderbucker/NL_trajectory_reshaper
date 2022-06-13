@@ -375,7 +375,7 @@ def plot_samples(text,pts,pts_new_list, images=[], fig=None,objs=None, colors = 
         
         ax2.plot(np.arange(len(vel_init)),vel_new+1,color=color, label=labels[i])
         ax2.set_xlabel('waypoints')
-        ax2.set_ylabel('speed')
+        ax2.set_ylabel('')
 
         ax2.set_title("speed profile")
         
@@ -521,27 +521,48 @@ def augment_xy(x, y, width_shift_range=0.1, height_shift_range=0.1, rotation_ran
     return x_new, y_new
 
 
-# def plot_attention(attention, sentence, predicted_sentence):
-#     sentence = tf_lower_and_split_punct(sentence).numpy().decode().split()
-#     predicted_sentence = predicted_sentence.numpy().decode().split() + ['[END]']
-#     fig = plt.figure(figsize=(10, 10))
-#     ax = fig.add_subplot(1, 1, 1)
 
-#     attention = attention[:len(predicted_sentence), :len(sentence)]
 
-#     ax.matshow(attention, cmap='viridis', vmin=0.0)
+def augment_4D(x, y,shift_range=[],
+               zoom_range=[0.5, 1.2], flip=False, offset=[]):
 
-#     fontdict = {'fontsize': 14}
+    r_ang = 0
+    ns, nt, nd = x.shape
+    R = np.tile(np.eye(2), [ns, 1, 1])
+    z_f = np.ones([ns, 1, 1])
+    sf = np.zeros([ns, 1, nd])
+    flip_f = np.ones([ns, 1, nd])
+    offset_f = np.zeros([ns, 1, nd])
 
-#     ax.set_xticklabels([''] + sentence, fontdict=fontdict, rotation=90)
-#     ax.set_yticklabels([''] + predicted_sentence, fontdict=fontdict)
+    if len(shift_range)>0:
+        for i in range(len(shift_range)):
+            sf[:, :, i] = np.random.uniform(-shift_range[i],
+                                        shift_range[i], [ns, 1])
+    if zoom_range != 0.0:
+        z_f = np.random.uniform(zoom_range[0], zoom_range[1], [ns, 1, 1])
 
-#     ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
-#     ax.yaxis.set_major_locator(ticker.MultipleLocator(1))
+    if flip:
+        for i in nd:
+            flip_f[:, :, i] = np.random.choice([-1, 1], [ns, 1])
+    if len(offset)>0:
+        for i in range(len(offset)):
+            offset_f[:,:,i] = offset[i]
 
-#     ax.set_xlabel('Input text')
-#     ax.set_ylabel('Output text')
-#     plt.suptitle('Attention weights')
+    x_new = (x*flip_f[:, :, :])*z_f[:, :, :]+sf[:, :, :]+offset_f[:,:,:]
+    y_new = (y*flip_f[:, :, :])*z_f[:, :, :]+sf[:, :, :]+offset_f[:,:,:]
+
+    # y_new[s] = 
+    # for s in range(ns):
+    #     x_new[s] = (np.dot((x[s, :, :]-0.5)*flip_f[s, :, :],
+    #                        R[s, :, :])+0.5)*z_f[s, 0, 0]+sf[s, :, :]+offset[1]
+    #     y_new[s] = (np.dot((y[s, :, :]-0.5)*flip_f[s, :, :],
+    #                        R[s, :, :])+0.5)*z_f[s, 0, 0]+sf[s, :, :]+offset[1]
+
+    return x_new, y_new
+
+
+
+
 
 
 # ============= trajectories functions ===============
@@ -556,7 +577,7 @@ def np2data(input_traj, obj_names, obj_poses, text, output_traj=None, locality_f
 def filter(x, y, data, lower_limit=-0.98, upper_limit=0.98):
     # filters samples where the out traj is not between 0 and 1
     i_invalid = np.concatenate([np.arange(len(y))[np.min(
-        y, axis=1) < lower_limit], np.arange(len(y))[np.max(y, axis=1) > upper_limit]])
+        y, axis=1) < lower_limit], np.arange(len(y))[np.max(y, axis=1) > upper_limit], np.arange(len(y))[np.any(np.isnan(y),axis=1)]])
     y_filtered = np.delete(y, i_invalid, axis=0)
     X_filtered = np.delete(x, i_invalid, axis=0)
     i_valid = np.delete(np.arange(len(y)), i_invalid, axis=0)
@@ -646,22 +667,16 @@ def generate(model, source, traj_n=10, start_index=6):
         dec_input = tf.concat([dec_input, dec_out[:, -1:, :]], axis=1)
     return dec_input
 
-def generator(data_set,stop=False,augment=True, num_objs = 3):
+def generator(data_set,stop=False,augment=True, num_objs = 6, pose_on_features=False):
 
     while True:
         for x, y,emb in data_set:
-            x_new, y_new = x,y
-            # if augment:
-            #     x_new, y_new = augment_xy(x,y,width_shift_range=0.3, height_shift_range=0.3,rotation_range=np.pi,
-            #             zoom_range=[0.6,1.1],horizontal_flip=True, vertical_flip=True, offset=[0.0,0.0])
-            # else:
-            #     x_new, y_new = augment_xy(x,y,width_shift_range=0.0, height_shift_range=0.0,rotation_range=0.0,
-            #             zoom_range=0.0,horizontal_flip=False, vertical_flip=False, offset=[0.0,0.0])
-
-            # emb[:,-num_batches:] = tf.one_hot(tf.argmax(emb[:,-num_batches:],1),num_objs).numpy()
-            # emb_new = tf.concat([emb[:,:-num_batches],tf.one_hot(tf.argmax(emb[:,-num_batches:],1),num_objs)],-1)
-            
-            yield ( [x_new , y_new[:, :-1],emb] , y_new[:, 1:] )
+            x_new, y_new,emb_new = x,y,emb
+            if augment:
+                x_new, y_new = augment_4D(x,y,shift_range=[0.2,0.2,0.2],zoom_range=[0.6,1.2],flip=False)
+                if pose_on_features:
+                    emb_new[-num_objs*3:]  = x_new[:num_objs,:3].flatten() # update the obj poses on the feature vector
+            yield ( [x_new , y_new[:, :-1],emb_new] , y_new[:, 1:] )
         if stop:
             break
 
