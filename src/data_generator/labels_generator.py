@@ -187,7 +187,7 @@ class Label_generator:
                         "front":{"before":cartesian_verbs,"func":(cartesian_grad, [0.0,1.0,0.0])},
                         "back":{"before":cartesian_verbs,"func":(cartesian_grad,[0.0,-1.0,0.0])},
                         "top":{"before":cartesian_verbs,"func":(cartesian_grad,[0.0,0.0,1.0])},
-                        "down":{"before":["go","stay"],"func":(cartesian_grad,[0.0,0.0,-1.0])},
+                        "down":{"before":["go ","stay "],"func":(cartesian_grad,[0.0,0.0,-1.0])},
                         "upper part":{"before":cartesian_verbs,"func":(cartesian_grad,[0.0,0.0,1.0])},
                         "bottom part":{"before":cartesian_verbs,"func":(cartesian_grad,[0.0,0.0,-1.0])},
                         "bottom":{"before":cartesian_verbs,"func":(cartesian_grad,[0.0,0.0,-1.0])}}

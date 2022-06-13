@@ -755,7 +755,7 @@
 "754": ["radio", "wireless"],
 "755": ["radio telescope", "radio reflector"],
 "756": ["rain barrel"],
-"757": ["recreational vehicle", "RV", "R.V."],
+"757": ["recreational vehicle", "RV"],
 "758": ["reel"],
 "759": ["reflex camera"],
 "760": ["refrigerator", "icebox"],
