@@ -23,7 +23,7 @@ conda activate py38
 ```
 Install CLIP + opencv
 ```
-pip install ftfy regex tqdm dqrobotics
+pip install ftfy regex tqdm dqrobotics rospkg
 pip install git+https://github.com/openai/CLIP.git
 pip install opencv-python
 ```
@@ -65,7 +65,7 @@ python modify_draw.py
 
 [manually install CVbridge](https://cyaninfinite.com/ros-cv-bridge-with-python-3/)
 > **NOTE:** this is the catkin config that I used to intall CVbridge with the Anaconda </br>
-```catkin config -DPYTHON_EXECUTABLE=/home/mirmi/anaconda3/envs/py38/bin/python -DPYTHON_INCLUDE_DIR=/home/mirmi/anaconda3/envs/py38/include/python3.8 -DPYTHON_LIBRARY=/home/mirmi/anaconda3/envs/py38/lib/libpython3.8.so -DSETUPTOOLS_DEB_LAYOUT=OFF```
+```catkin config -DPYTHON_EXECUTABLE=$CONDA_PREFIX/bin/python -DPYTHON_INCLUDE_DIR=$CONDA_PREFIX/include/python3.8 -DPYTHON_LIBRARY=$CONDA_PREFIX/lib/libpython3.8.so -DSETUPTOOLS_DEB_LAYOUT=OFF```
 
 ## Running with ROS
 terminal 1

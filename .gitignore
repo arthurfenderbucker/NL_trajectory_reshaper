@@ -13,3 +13,5 @@ __pycache__
 src/motion_refiner
 __pycache__/
 *.pyc
+.ipynb_checkpoints/
+.ipynb_checkpoints/*

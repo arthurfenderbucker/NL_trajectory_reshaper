@@ -8,9 +8,6 @@ import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-import json
-import random
-import re
 
 import absl.logging #prevent checkpoint warnings while training
 absl.logging.set_verbosity(absl.logging.ERROR)
@@ -444,6 +441,7 @@ def get_model(features_n=777, num_layers_enc=2, num_layers_dec=2,num_dense=3,den
              dropout_rate=0.1, wp_d=4,bs=32,ds_size_factor=1.0,augment=0,
                 concat_emb=False, optimizer="adam",norm_layer=True,activation="linear", max_traj_len = 100, num_emb_vec=4):
 
+
     # Size of input vocab plus start and end tokens
     input_vocab_size = wp_d
     target_vocab_size = wp_d
@@ -481,7 +479,7 @@ def get_model(features_n=777, num_layers_enc=2, num_layers_dec=2,num_dense=3,den
     compile(model, optimizer=optimizer)
     return model
 
-
+# from dtw_loss import *
 def compile(model, optimizer="adam"):
     # optimizer = tf.keras.optimizers.Adam(1e-2, beta_1=0.9, beta_2=0.98,
     #                                      epsilon=1e-9)
@@ -503,6 +501,8 @@ def compile(model, optimizer="adam"):
         loss_log = tf.reduce_mean(tf.square(y_true-y_pred))
         _loss = tf.add(loss_mse, tf.math.multiply(alpha, loss_log))
         return loss_log
+
+        
     loss = MSE
 
     def masked_loss(y_true, y_pred):
@@ -513,6 +513,10 @@ def compile(model, optimizer="adam"):
         _loss *= mask
 
         return tf.reduce_sum(_loss)/tf.reduce_sum(mask)
+
+    # def softDTW(a, b):
+    #     return batch_soft_dtw(a, b, 0.01, warp=0.0, metric="L1")
+
     metrics = [loss]  # , masked_loss]
     model.compile(optimizer=optimizer, loss=MSE, metrics=metrics)
 

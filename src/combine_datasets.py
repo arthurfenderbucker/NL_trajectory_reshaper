@@ -8,22 +8,22 @@ import re
 from tqdm import tqdm
 import torch
 import gc
+from config import *
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument('--dataset_dir', default='/home/tum/data/data/',
-                    help='Dataset directory.')
-
+parser.add_argument('--dataset_dir', default=data_folder)
 parser.add_argument('--augment_text', default="None")
-parser.add_argument('--new_dataset_name', default="4D_1M_scaping_factor")
-parser.add_argument('--set_name', default="ditributed")
-parser.add_argument('--dataset_name', default="4D_2to6_norm")
+parser.add_argument('--new_dataset_name', default="4D_cliponly_sf_100k")
+parser.add_argument('--set_name', default="clip_only_2/")
+parser.add_argument('--dataset_name', default=dataset_name)
 
+parser.add_argument('--clip_only', type=bool, default=False)
 
 
 args = parser.parse_args()
 
-
+clip_only = True if args.clip_only == 1 else False
 
 
 if args.augment_text != "None":
@@ -75,7 +75,7 @@ def augment_text(text_ag, data_raw):
 
 
 traj_n = 40
-mr = Motion_refiner(load_models=(args.augment_text!="None"),traj_n = traj_n)
+mr = Motion_refiner(load_models=(args.augment_text!="None"),traj_n = traj_n, clip_only=clip_only)
 
 set_folder = args.set_name
 

@@ -8,7 +8,7 @@ project(NL_trajectory_reshaper)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-  my_interfaces
+#  my_interfaces
 )
 
 ## System dependencies are found with CMake's conventions

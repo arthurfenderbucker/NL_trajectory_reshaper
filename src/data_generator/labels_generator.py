@@ -192,7 +192,10 @@ class Label_generator:
                         "bottom part":{"before":cartesian_verbs,"func":(cartesian_grad,[0.0,0.0,-1.0])},
                         "bottom":{"before":cartesian_verbs,"func":(cartesian_grad,[0.0,0.0,-1.0])}}
 
-    change_type = {"dist":(dist_change),"speed":(speed_change),"cartesian":(cartesian_change)}
+    # force_verbs = ["press","push", "pull", "pressure"]
+    # force_change = {"stronger ":{"before":(force_verbs, change_intensity),"after":spatial_dep,"func":(force,1.0, ["obj_p","w"])},}
+
+    change_type = {"dist":(dist_change),"speed":(speed_change),"cartesian":(cartesian_change)}#, "force":(force_change)}
 
 
     # Causality / Dependence:

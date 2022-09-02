@@ -9,7 +9,8 @@ import matplotlib
 from matplotlib import cm
 from mpl_toolkits.axes_grid1 import ImageGrid
 from tqdm import tqdm
-
+import os
+import similaritymeasures
 
 # ================= plot functions ====================
 
@@ -229,12 +230,6 @@ def plot_dist(x):
 
 
 
-
-
-
-
-
-
 # =============== plot 3D and 4D functions =====================
 
 
@@ -299,7 +294,7 @@ def show_data4D(d_,image_loader= None,pred=None, show=True,color_traj=True, obj_
 
         if not pred is None:
             new_pts_list.append(pred[i])
-        print(new_pts_list)
+        # print(new_pts_list)
         # images_path = "/home/mirmi/Arthur/dataset/"
         # objs_img_base_paths = [images_path+c+"/"+n for c,n in zip(obj_classes,obj_names)]
 
@@ -561,11 +556,47 @@ def augment_4D(x, y,shift_range=[],
     return x_new, y_new
 
 
+# ================ metrics =============================
 
+
+def compute_metrics(trajs_x, trajs_y, filter_nan=False):
+    """Computes the similarity metrics between 2 trajectories:
+    returns: dict(pcm,df,area,cl,dtw,mae,mse), metrics over each sample"""
+
+    metrics = {"pcm":None,"dfd":None,"area":None,"cl":None,"dtw":None,"mae":None,"mse":None}
+
+    metrics_h = np.zeros((trajs_x.shape[0],7))
+    for i,(exp_data, num_data) in enumerate(zip(trajs_x, trajs_y)):
+
+        pcm = similaritymeasures.pcm(exp_data, num_data) # Partial Curve Mapping
+        dfd = similaritymeasures.frechet_dist(exp_data, num_data) # Discrete Frechet distance
+        area = similaritymeasures.area_between_two_curves(exp_data, num_data) # area between two curves
+        cl = similaritymeasures.curve_length_measure(exp_data, num_data)# Curve Length based similarity measure
+        dtw, d = similaritymeasures.dtw(exp_data, num_data) # Dynamic Time Warping distance
+        mae = similaritymeasures.mae(exp_data, num_data) # mean absolute error
+        mse = similaritymeasures.mse(exp_data, num_data) # mean squared error
+
+        metrics_h[i,:] = [pcm,dfd,area,cl,dtw,mae,mse]
+
+    if filter_nan:
+        metrics_h = metrics_h[~np.isnan(metrics_h).any(axis=1),:]
+    metrics_v = np.mean(metrics_h,axis=0)
+    for k,v in zip(metrics.keys(), metrics_v):
+        metrics[k]=v
+        print(k+":\t",v)
+    return metrics, metrics_h
+
+# metrics, metrics_h = compute_metrics(trajs_x, trajs_y)
 
 
 
 # ============= trajectories functions ===============
+
+def prepare_x(x, traj_indices, obj_poses_indices):
+  objs = pad_array(list_to_wp_seq(x[:,obj_poses_indices],d=3),4,axis=-1) # no speed
+  trajs = list_to_wp_seq(x[:,traj_indices],d=4)
+  return np.concatenate([objs,trajs],axis = 1)
+
 
 def np2data(input_traj, obj_names, obj_poses, text, output_traj=None, locality_factor=0.5, image_paths=None):
     data = []
@@ -663,11 +694,11 @@ def generate(model, source, traj_n=10, start_index=6):
     bs = tf.shape(traj)[0]
     dec_input = traj[:, start_index:start_index+1, :]  # tf.ones((bs, 1,2)) * init_dec_input
     for i in tqdm(range(traj_n - 1)):
-        dec_out = model.predict([traj, dec_input, features])
+        dec_out = model.predict([traj, dec_input, features], verbose=0)
         dec_input = tf.concat([dec_input, dec_out[:, -1:, :]], axis=1)
     return dec_input
 
-def generator(data_set,stop=False,augment=True, num_objs = 6, pose_on_features=False):
+def generator(data_set,stop=False,augment=False, num_objs = 6, pose_on_features=False):
 
     while True:
         for x, y,emb in data_set:
@@ -691,9 +722,16 @@ def reset_logs(logdir):
         print("Error: %s - %s." % (e.filename, e.strerror))
 
 def reset_seed(seed = 42):
-    seed = 42
     tf.random.set_seed(seed)
+    tf.keras.utils.set_random_seed(seed)
     np.random.seed(seed)
+    random.seed(seed)
+    os.environ['PYTHONHASHSEED']=str(seed)
+    os.environ["TF_DETERMINISTIC_OPS"] = "1"
+    tf.random.set_global_generator(tf.random.Generator.from_seed(seed))
+    # session_conf = tf.compat.v1.ConfigProto(intra_op_parallelism_threads=1, inter_op_parallelism_threads=1)
+    # sess = tf.Session(graph=tf.get_default_graph(), config=session_conf)
+    # K.set_session(sess)
 
 if __name__ == '__main__':
     pass

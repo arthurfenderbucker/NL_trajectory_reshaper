@@ -12,15 +12,18 @@ import transformers as ppb
 from tqdm import tqdm
 from sklearn.model_selection import train_test_split
 
-
 import warnings
 try:
     from motion_refiner.src.functions import *
 except:
     try:
         from src.functions import *
+        from src.config import *
+
     except:
         from functions import *
+        from config import *
+
 
 
 warnings.filterwarnings('ignore')
@@ -32,7 +35,7 @@ base_path = "data/"
 
 
 class Motion_refiner():
-    def __init__(self, traj_n=10, verbose=0, load_models=True, locality_factor=True, poses_on_features=True):
+    def __init__(self, traj_n=40, verbose=0, load_models=True, locality_factor=True, poses_on_features=True, clip_only=False, load_precomp_emb=False):
         """
         traj_n: max num of waypoints for the interpolated trajectory
         verbose: 0 = none, 1 = prints
@@ -42,35 +45,60 @@ class Motion_refiner():
         self.verbose = verbose
         self.device = "cuda"
         self.seed = 42
-
+        self.clip_only = clip_only
 
         self.BERT_token_len = 19
+        self.precomputed_img_emb = {}
+        self.precomputed_obj_names_emb = {}
+
+
         if load_models:
-            print("loading BERT model... ",end="")
-            self.BERT_model, self.BERT_tokenizer = self.load_bert()
-            print("done")
+            if not clip_only:
+                print("loading BERT model... ",end="")
+                self.BERT_model, self.BERT_tokenizer = self.load_bert()
+                print("done")
             
             # self.pipe_bert,self.model_bert,self.tokenizer_bert = self.load_pipeline('distilbert-base-uncased',ppb.TFDistilBertModel)
             print("loading CLIP model... ",end="")
             self.CLIP_model, self.CLIP_preprocess = self.load_CLIP()
             print("done")
 
+            if load_precomp_emb:
+                print("loading precomputed CLIP text embbedings... ",end="")
+                with open(image_dataset_folder+"obj_names_clip_emb.json") as f:
+                    self.precomputed_obj_names_emb = json.load(f)
+                print("done")
+                print("loading precomputed CLIP img embbedings... ",end="")
+                with open(image_dataset_folder+"images_clip_emb.json") as f:
+                    self.precomputed_img_emb = json.load(f)
+                print("done")
+                    
+            print("DEVICE: ",self.device)
 
         self.locality_factor = locality_factor
-        self.bert_n = 768
+
+        
+
+        self.n_text_emb = 768
+        if clip_only:
+            print("clip only")
+            self.n_text_emb = 512 #using clip textual embeding intead of bert
+
         if locality_factor:
-            self.bert_n += 1 #appending locality factor
+            self.n_text_emb += 1 #appending locality factor
 
         self.n_objs = MAX_NUM_OBJS
         self.dim = 4
         
-        self.feature_indices = np.array(range(self.bert_n))
+        self.feature_indices = np.array(range(self.n_text_emb))
         self.obj_sim_indices = np.array(
-            range(self.bert_n, self.bert_n+self.n_objs))
+            range(self.n_text_emb, self.n_text_emb+self.n_objs))
         self.obj_poses_indices = np.array(
-            range(self.bert_n+self.n_objs, self.bert_n+self.n_objs*(3+1)))
+            range(self.n_text_emb+self.n_objs, self.n_text_emb+self.n_objs*(3+1)))
         self.traj_indices = np.array(
-            range(self.bert_n+self.n_objs*4, self.bert_n+self.n_objs*(3+1)+self.traj_n*self.dim))
+            range(self.n_text_emb+self.n_objs*4, self.n_text_emb+self.n_objs*(3+1)+self.traj_n*self.dim))
+
+        self.last_index=self.n_text_emb+self.n_objs*(3+1)+self.traj_n*self.dim
 
         if poses_on_features:
             self.embedding_indices = np.concatenate(
@@ -140,7 +168,7 @@ class Motion_refiner():
     def load_dataset(self, dataset_name, filter_data=False, base_path=base_path):
 
         # ------- load data --------
-        print("loading data... ",end="")
+        print("loading dataset: ",dataset_name,end=" ...")
         X_, Y_ = self.load_XY(x_name="X"+dataset_name,y_name="Y"+dataset_name, base_path=base_path)
         data_ = self.load_data(data_name="data"+dataset_name,base_path=base_path)
         feature_indices, obj_sim_indices, obj_poses_indices, traj_indices = self.get_indices()
@@ -157,6 +185,11 @@ class Motion_refiner():
 
         # print("X shape: %s\t min: %f \t max %f" % limits(X[:,traj_indices]))
         # print("Y shape: %s\t min: %f \t max %f" % limits(Y))
+        if self.last_index != X.shape[-1]:
+            print("ATTENTION!!! dataset and MR indexes dont match!!!")
+            print("motion refiner final index = ",self.last_index)
+            print("dataset final index = ",X.shape[-1])
+
         return X,Y, data
 
     def split_dataset(self, X, Y, test_size=0.2, val_size=0.1):
@@ -170,52 +203,135 @@ class Motion_refiner():
         print("Val   X:",X_valid.shape,"\tY:",y_valid.shape)
         return X_train, X_test, X_valid, y_train, y_test, y_valid, indices_train, indices_test, indices_val
 
-    def compute_clip_similarity(self, obj_names, text, images_path=None):
+    def normalize_features(self, vec, axis=-1):
+        row_sums = vec.sum(axis=axis)
+        return vec/ row_sums[:, np.newaxis]
+
+    def compute_clip_similarity(self, obj_names, text, images_path=None, images=None, text_feature=None):
         """computes the similarity vector between the embeded representation of a list of objects and a list of texts"""
 
-        token_obj_name = clip.tokenize([o for o in obj_names]).to(self.device)
-        token_clip_text = clip.tokenize(text).to(self.device)
+        if not text_feature is None:
+            # print("pre comp text features")
+            text_clip_features = text_feature
+        else:
+            text_clip_features = self.get_clip_text_features([text])
+        text_clip_features=text_clip_features.astype(np.float32)
+        text_clip_features /=  np.linalg.norm(text_clip_features, axis=-1, keepdims=True)
 
-        with torch.no_grad():
-            obj_names_features = self.CLIP_model.encode_text(
-                token_obj_name).float()
-            text_clip_features = self.CLIP_model.encode_text(
-                token_clip_text).float()
-            if not images_path is None:
-                images = [self.load_image(img_path) for img_path in images_path]
 
-                image_input = torch.tensor(torch.cat(images)).to(self.device)
 
-                image_features = self.CLIP_model.encode_image(image_input).float()
+        if len(self.precomputed_obj_names_emb.keys()) > 0:
+            # print("pre comp obj names features")
+            obj_names_features = np.array([self.precomputed_obj_names_emb[o] for o in obj_names])
+        else:
+            obj_names_features = self.get_clip_text_features(obj_names)
+        obj_names_features = obj_names_features.astype(np.float32)
+        obj_names_features /= np.linalg.norm(obj_names_features, axis=-1, keepdims=True).astype(np.float32)
 
-        obj_names_features /= obj_names_features.norm(dim=-1, keepdim=True)
-        text_clip_features /= text_clip_features.norm(dim=-1, keepdim=True)
-        
-        similarity_text_name = text_clip_features.cpu().numpy() @ obj_names_features.cpu().numpy().T
+        if not images_path is None: #using saved image
+            if len(self.precomputed_img_emb.keys()) > 0:
+                # print("pre comp image_features")
+                image_features = np.array([self.precomputed_img_emb[img_path] for img_path in images_path])
+            else:
 
-        if not images_path is None:
-            image_features /= image_features.norm(dim=-1, keepdim=True)
-            similarity_image_name = obj_names_features.cpu().numpy() @ image_features.cpu().numpy().T #similarity between object image and object name
-            similarity_text_image = text_clip_features.cpu().numpy() @ obj_names_features.cpu().numpy().T
-            
+                image_features = self.get_image_features(images_path, images=images)
+            image_features = image_features.astype(np.float32)
+            image_features /=  np.linalg.norm(image_features, axis=-1, keepdims=True).astype(np.float32)
+
+            similarity_text_image = text_clip_features @ image_features.T
             similarity = similarity_text_image
         else:
+
+
+            similarity_text_name = text_clip_features @ obj_names_features.T
             similarity = similarity_text_name
 
-        return token_obj_name, token_clip_text, similarity
+        return similarity
 
-    def compute_embeding(self, data, pipe):
-        text_features_list = []
-        for d in data:
-            f = pipe(d["text"])
-            print(f)
-            f = np.squeeze(f)[:1, :]
-            print(f.shape)
-            text_features_list.append(f, axis=0)
-        text_features = np.concat(text_features_list)
-        return text_features
 
-    def compute_bert_embeding(self, data):
+    # def compute_clip_similarity_(self, obj_names, text, images_path=None, images=None):
+    #     """computes the similarity vector between the embeded representation of a list of objects and a list of texts"""
+
+    #     token_obj_name = clip.tokenize([o for o in obj_names]).to(self.device)
+    #     token_clip_text = clip.tokenize(text).to(self.device)
+
+    #     with torch.no_grad():
+    #         obj_names_features = self.CLIP_model.encode_text(
+    #             token_obj_name).float()
+    #         text_clip_features = self.CLIP_model.encode_text(
+    #             token_clip_text).float()
+    #         if not images_path is None:
+                
+    #             if len(self.precomputed_img_emb.keys()) > 0:
+    #                 print("precomputed_img_emb")
+    #                 image_features = torch.tensor([self.precomputed_img_emb[img_path] for img_path in images_path])
+    #             else:
+    #                 images = [self.load_image(img_path) for img_path in images_path]
+    #                 image_input = torch.tensor(torch.cat(images)).to(self.device)
+    #                 image_features = self.CLIP_model.encode_image(image_input).float()
+
+    #         if not images is None:
+    #             image_input = torch.tensor(torch.cat(images)).to(self.device)
+    #             image_features = self.CLIP_model.encode_image(image_input).float()
+                
+
+    #     obj_names_features /= obj_names_features.norm(dim=-1, keepdim=True)
+    #     text_clip_features /= text_clip_features.norm(dim=-1, keepdim=True)
+        
+    #     similarity_text_name = text_clip_features.cpu().numpy() @ obj_names_features.cpu().numpy().T
+
+    #     if not images_path is None:
+    #         image_features /= image_features.norm(dim=-1, keepdim=True)
+    #         # similarity_image_name = obj_names_features.cpu().numpy() @ image_features.cpu().numpy().T #similarity between object image and object name
+    #         # similarity_text_image = image_features.cpu().numpy() @ obj_names_features.cpu().numpy().T
+    #         similarity_text_image = text_clip_features.cpu().numpy() @ image_features.cpu().numpy().T
+    #         # similarity_text_image = text_clip_features.cpu().numpy() @ obj_names_features.cpu().numpy().T
+
+            
+    #         similarity = similarity_text_image
+    #     else:
+    #         similarity = similarity_text_name
+
+    #     return similarity
+
+
+    def get_clip_text_features(self, text_list, bs=100):
+        '''computes the CLIP text embeddings for a list of texts'''
+        def text_loader(lst, n):
+            for i in range(0, len(lst), n):
+                yield clip.tokenize(lst[i:i + n]).to(self.device)
+
+        all_features = []
+        with torch.no_grad():
+            for t in text_loader(text_list, bs):
+                features = self.CLIP_model.encode_text(t)
+                all_features.append(features)
+        return torch.cat(all_features).cpu().numpy()
+    
+    
+    def get_image_features(self,image_paths, bs=100, imgs=None):
+        '''computes the CLIP image embeddings for a list of image files'''
+        def image_loader(lst, n):
+            for i in range(0, len(lst), n):
+                b = lst[i:i + n]
+                classes = [c.split("/")[-2] for c in b]
+                if imgs is None:
+                    images = torch.concat([self.CLIP_preprocess(Image.open(im)).unsqueeze(0) for im in b])
+                else:
+                    images = torch.concat([self.CLIP_preprocess(im).unsqueeze(0) for im in imgs])
+
+                yield classes,images
+
+        all_features = []
+        with torch.no_grad():
+            for classes, images in image_loader(image_paths,bs):
+                features = self.CLIP_model.encode_image(images.to(self.device))
+                all_features.append(features)
+        return torch.cat(all_features).cpu().numpy()
+
+
+
+    def get_bert_embeding(self, data):
 
         for d in data:
             d["token_text"] = self.BERT_tokenizer.encode(d["text"])
@@ -240,6 +356,17 @@ class Motion_refiner():
         text_features = last_hidden_states[0][:, 0, :].numpy()
         # print(text_features.shape)
 
+        return text_features
+
+    def compute_embeding(self, data, pipe):
+        text_features_list = []
+        for d in data:
+            f = pipe(d["text"])
+            print(f)
+            f = np.squeeze(f)[:1, :]
+            print(f.shape)
+            text_features_list.append(f, axis=0)
+        text_features = np.concat(text_features_list)
         return text_features
 
     def save_data(self, data, data_name="data", base_path=base_path):
@@ -272,12 +399,12 @@ class Motion_refiner():
         with open(base_path+data_name+".json") as f:
             data_dict = json.load(f)
         data = list(data_dict.values())
-        # TODO change data values to np arrays and tensors
+
         return data
     
 
     def image_loader(self, im):
-
+        """loads images as RGB cropped to the clip format"""
         sigma = [0.26862954, 0.26130258, 0.27577711]
         mean = [0.48145466, 0.4578275, 0.40821073 ]
         return ((np.swapaxes(np.swapaxes(self.load_image(im).cpu().detach().numpy()[0],0,2),1,0)*sigma+mean)*255).astype('uint8')
@@ -314,26 +441,37 @@ class Motion_refiner():
     def get_indices(self):
         return self.feature_indices, self.obj_sim_indices, self.obj_poses_indices, self.traj_indices
 
-    def prepare_data(self, data, deltas=False, label=True, interpolation="spline", verbose=1,change_img_base=None):
+    def prepare_data(self, data, deltas=False, label=True, interpolation="spline", verbose=1,change_img_base=None, images=None ):
         """Preprocess dataset"""
 
         # compute embeddings and similarity
-        text_features = self.compute_bert_embeding(data)
-        # text_features = self.compute_embeding(data,self.pipe_bert)
+        text_features = np.zeros((len(data),self.n_text_emb - (1 if self.locality_factor else 0)))
+        
+        text_list = [d["text"] for d in data]
+        clip_text_features = self.get_clip_text_features(text_list)
+        if self.clip_only:
+            text_features = clip_text_features
+        else:
+            text_features = self.get_bert_embeding(data)
 
+        print("DONE - computing textual embeddings", text_features.shape)
 
         for i, d in tqdm(enumerate(data)):
-
-        
             image_paths = d["image_paths"]
 
+            # d["obj_names_features"], d["text_clip_features"], d["image_features"], d['similarity'] = self.compute_clip_similarity(
+            #     d["obj_names"], [d["text"]], images_path = image_paths)
+                        
             if not change_img_base is None:
                 for ti in range(len(image_paths)):
-                    image_paths[ti] = image_paths[ti].replace(change_img_base[0], change_img_base[1])
+                    image_paths[ti] = image_paths[ti].replace(change_img_base[0], change_img_base[1])    
 
-            d["token_obj_name"], d["token_clip_text"], d['similarity'] = self.compute_clip_similarity(
-                d["obj_names"], [d["text"]], images_path = image_paths)
-        print("DONE - computing embeddings and similarity vectors ")
+            d['similarity'] = self.compute_clip_similarity(d["obj_names"], [d["text"]], images_path = image_paths, text_feature=clip_text_features[i,np.newaxis], images=images)
+            # print(d["obj_names"])
+            # print(d['similarity'])
+            # print(self.compute_clip_similarity_(d["obj_names"], [d["text"]], images_path = image_paths, images=None))
+        print("DONE - computing similarity vectors ")
+
         X_list = []
         Y_list = []
         # prepare data
@@ -349,13 +487,6 @@ class Motion_refiner():
                 traj_o = np.array(d["output_traj"])
                 x_o, y_o, z_o, vel_o = traj_o[:,0],traj_o[:,1],traj_o[:,2], traj_o[:,3]
 
-                # x_o, y_o = self.interpolate_traj(
-                #     np.array(d["output_traj"]).T, interpolation=interpolation)
-
-                # if rotate:
-                #     rotate(, origin,radians)
-
-                # y = np.concatenate([x_o-x_i,y_o-y_i],axis = 0) #compute deltas
                 if deltas:
                     y = np.concatenate([x_o-x_i, y_o-y_i,z_o - z_i,vel_o-vel_i],
                                        axis=0)  # compute deltas
@@ -379,7 +510,6 @@ class Motion_refiner():
 
             sim = pad_array(np.array(d['similarity'][0]),MAX_NUM_OBJS,axis=-1)
             obj_poses = pad_array(np.asarray(d["obj_poses"]),MAX_NUM_OBJS,axis=0)
-            print(obj_poses)
             # sim = sim_mask
             if self.locality_factor:
                 locality_factor= np.array([d["locality_factor"]])
@@ -400,12 +530,12 @@ class Motion_refiner():
         trajs = list_to_wp_seq(x[:, self.traj_indices],d=4)
         return np.concatenate([objs, trajs], axis=1)
 
-    def apply_interaction(self, model, d, text,  label=False):
+    def apply_interaction(self, model, d, text,  label=False, images=None ):
         data_new = []
         data_new.append({"input_traj": d["input_traj"], "output_traj": d["output_traj"], "text": text, "obj_names": d["obj_names"],
                         "obj_poses": d["obj_poses"],"locality_factor":d["locality_factor"],"image_paths":d["image_paths"]})
 
-        X, _ = self.prepare_data(data_new, label=label,  verbose=True)
+        X, _ = self.prepare_data(data_new, label=label,  verbose=True, images=images)
         print(X.shape)
         traj = list_to_wp_seq(X[:, self.traj_indices],d=4)
         traj_and_obj = self.prepare_x(X)
