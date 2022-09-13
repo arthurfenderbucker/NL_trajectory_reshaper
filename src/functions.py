@@ -568,10 +568,10 @@ def compute_metrics(trajs_x, trajs_y, filter_nan=False):
     metrics_h = np.zeros((trajs_x.shape[0],7))
     for i,(exp_data, num_data) in enumerate(zip(trajs_x, trajs_y)):
 
-        pcm = similaritymeasures.pcm(exp_data, num_data) # Partial Curve Mapping
+        pcm = 0# similaritymeasures.pcm(exp_data, num_data) # Partial Curve Mapping
         dfd = similaritymeasures.frechet_dist(exp_data, num_data) # Discrete Frechet distance
-        area = similaritymeasures.area_between_two_curves(exp_data, num_data) # area between two curves
-        cl = similaritymeasures.curve_length_measure(exp_data, num_data)# Curve Length based similarity measure
+        area = 0 #similaritymeasures.area_between_two_curves(exp_data, num_data) # area between two curves
+        cl = 0 #similaritymeasures.curve_length_measure(exp_data, num_data)# Curve Length based similarity measure
         dtw, d = similaritymeasures.dtw(exp_data, num_data) # Dynamic Time Warping distance
         mae = similaritymeasures.mae(exp_data, num_data) # mean absolute error
         mse = similaritymeasures.mse(exp_data, num_data) # mean squared error
@@ -723,7 +723,7 @@ def reset_logs(logdir):
 
 def reset_seed(seed = 42):
     tf.random.set_seed(seed)
-    tf.keras.utils.set_random_seed(seed)
+    # tf.keras.utils.set_random_seed(seed)
     np.random.seed(seed)
     random.seed(seed)
     os.environ['PYTHONHASHSEED']=str(seed)

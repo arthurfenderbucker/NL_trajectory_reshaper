@@ -384,18 +384,20 @@ class Decoder(tf.keras.layers.Layer):
     def call(self, inputs, mask=None, training=None):
 
         feature_vec = self.feature_embeddings[0](inputs[2])
-        feature_vec = tf.expand_dims(feature_vec, axis=1)
-        emb = self.concat([inputs[1],feature_vec]) #appends feature vector
+        emb = tf.expand_dims(feature_vec, axis=1)
+        # emb = self.concat([feature_vec]) #appends feature vector
         
         for feature_emb in self.feature_embeddings[1:]:
             feature_vec = feature_emb(inputs[2])
             feature_vec = tf.expand_dims(feature_vec, axis=1)
+
             emb = self.concat([emb,feature_vec]) #appends feature vector
             
 
-            
+        # tf.print(tf.shape(emb))
+        
 
-        x = self.embedding_(inputs[0])
+        x = self.embedding_(inputs[1])
         # positional encoding
         x *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))
 
@@ -423,7 +425,6 @@ class Decoder(tf.keras.layers.Layer):
         # self._att_weights = [[None] * len(self.decoder_layers) for _ in range (2)]
         for i,decoder_layer in enumerate(self.decoder_layers):
             # x += feature_vec
-
             x = decoder_layer([x, emb], mask=[embedding_mask, mask])
             # self._att_weights[0][i] = decoder_layer.multi_head_attention1.distribution
             # self._att_weights[1][i] = decoder_layer.multi_head_attention2.distribution
@@ -438,7 +439,7 @@ class Decoder(tf.keras.layers.Layer):
 
 
 def get_model(features_n=777, num_layers_enc=2, num_layers_dec=2,num_dense=3,dense_n=256, d_model=128, dff=512, num_heads=8,
-             dropout_rate=0.1, wp_d=4,bs=32,sf=1.0,augment=0, loss="mse",
+             dropout_rate=0.1, wp_d=4,bs=32,ds_size_factor=1.0,augment=0, loss="mse",
                 concat_emb=False, optimizer="adam",norm_layer=True,activation="linear", max_traj_len = 100, num_emb_vec=4):
 
 
@@ -452,14 +453,14 @@ def get_model(features_n=777, num_layers_enc=2, num_layers_dec=2,num_dense=3,den
         shape=(None, target_vocab_size), name="shifted_target")
     features = tf.keras.layers.Input(shape=(features_n), name="features_input")
 
-    encoder = Encoder(input_vocab_size, num_layers=num_layers_enc,maximum_position_encoding=max_traj_len,
-                      d_model=d_model, num_heads=num_heads, dff=dff, dropout=dropout_rate,norm_layer=norm_layer)
+    # encoder = Encoder(input_vocab_size, num_layers=num_layers_enc,maximum_position_encoding=max_traj_len,
+    #                   d_model=d_model, num_heads=num_heads, dff=dff, dropout=dropout_rate,norm_layer=norm_layer)
     decoder = Decoder(target_vocab_size, num_layers=num_layers_dec,maximum_position_encoding=max_traj_len,num_emb_vec=num_emb_vec,
                       d_model=d_model, num_heads=num_heads, dff=dff, dropout=dropout_rate,norm_layer=norm_layer)
 
-    x = encoder(traj_input)
+    # x = encoder(traj_input)
     # , mask = encoder.compute_mask(traj_input))
-    x = decoder([target, x, features])
+    x = decoder([target, traj_input, features])
 
 
 
@@ -492,33 +493,33 @@ def compile(model, optimizer="adam", loss="mse"):
 
 
     
-    # def LDA(y_true, y_pred):
+    def LDA(y_true, y_pred):
 
-    #     alpha = 0.1
-    #     epsilon = 10e-6
+        alpha = 0.1
+        epsilon = 10e-6
 
-    #     y_true_abs = tf.norm(y_true, ord='euclidean', axis=-1)
-    #     y_pred_abs = tf.norm(y_pred, ord='euclidean', axis=-1)
+        y_true_abs = tf.norm(y_true, ord='euclidean', axis=-1)
+        y_pred_abs = tf.norm(y_pred, ord='euclidean', axis=-1)
 
-    #     y_true = tf.expand_dims(y_true, -1)
-    #     y_pred = tf.expand_dims(y_pred, -1)
+        y_true = tf.expand_dims(y_true, -1)
+        y_pred = tf.expand_dims(y_pred, -1)
 
-    #     y_pred  = tf.transpose(y_pred, [0, 1, 3,2])
+        y_pred  = tf.transpose(y_pred, [0, 1, 3,2])
 
-    #     a = tf.squeeze(tf.matmul(y_pred, y_true),[2, 3])
-    #     b = tf.add(epsilon,tf.multiply(y_true_abs,y_pred_abs))
-    #     angle_diff = tf.add(1.0,-tf.math.divide(a,b))
-    #     ld = tf.maximum(tf.square(tf.add(y_true_abs,-y_pred_abs)), 1e-9)
-    #     lenght_diff = tf.math.divide(tf.math.sqrt(ld),tf.add(epsilon, tf.add(y_true_abs,y_pred_abs)))
+        a = tf.squeeze(tf.matmul(y_pred, y_true),[2, 3])
+        b = tf.add(epsilon,tf.multiply(y_true_abs,y_pred_abs))
+        angle_diff = tf.add(1.0,-tf.math.divide(a,b))
+        ld = tf.maximum(tf.square(tf.add(y_true_abs,-y_pred_abs)), 1e-9)
+        lenght_diff = tf.math.divide(tf.math.sqrt(ld),tf.add(epsilon, tf.add(y_true_abs,y_pred_abs)))
 
-    #     k1 = 0.5
-    #     k2 = 0.5
+        k1 = 0.5
+        k2 = 0.5
 
-    #     loss_lda = tf.add(tf.math.multiply(k1,lenght_diff), tf.math.multiply(k2*1/2,angle_diff))
-    #     loss_mse = tf.square(y_true-y_pred)
-    #     # loss_log = tf.reduce_mean(tf.square(y_true-y_pred))
-    #     loss_LDA_MSE = tf.add(loss_mse, tf.math.multiply(alpha, loss_lda))
-    #     return tf.reduce_mean(loss_LDA_MSE)
+        loss_lda = tf.add(tf.math.multiply(k1,lenght_diff), tf.math.multiply(k2*1/2,angle_diff))
+        loss_mse = tf.square(y_true-y_pred)
+        # loss_log = tf.reduce_mean(tf.square(y_true-y_pred))
+        loss_LDA_MSE = tf.add(loss_mse, tf.math.multiply(alpha, loss_lda))
+        return tf.reduce_mean(loss_LDA_MSE)
 
 
     def masked_loss(y_true, y_pred):
@@ -537,16 +538,16 @@ def compile(model, optimizer="adam", loss="mse"):
     # else:
     #     _loss = MSE
     #     metrics = [LDA]
-    
     _loss = MSE
     metrics=[]
+        # metrics = [_loss]  # , masked_loss]
     # def softDTW(a, b):
     #     return batch_soft_dtw(a, b, 0.01, warp=0.0, metric="L1")
 
     model.compile(optimizer=optimizer, loss=_loss, metrics=metrics)
 
 
-def file_name2dict(s, delimiter ="&", show=True):
+def file_name2dict(s, delimiter ="&"):
     d = {}
     if s[-3:] == ".h5":
         s = s[:-3]
@@ -563,8 +564,7 @@ def file_name2dict(s, delimiter ="&", show=True):
                 d[l[0]] = int(l[1])
             except:
                 d[l[0]] = l[1]
-    if show:
-        print(d)
+    print(d)
     return d
 
 

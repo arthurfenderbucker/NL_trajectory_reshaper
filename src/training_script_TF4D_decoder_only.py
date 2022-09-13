@@ -22,7 +22,7 @@ import time
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument('--epochs', type=int, default=500)
+parser.add_argument('--epochs', type=int, default=0)
 parser.add_argument('--bs', type=int, default=16)
 parser.add_argument('--dataset_dir', default=data_folder)
 parser.add_argument('--models_path', default=models_folder)
@@ -39,16 +39,16 @@ parser.add_argument('--model_depth', type=int, default=400)
 parser.add_argument('--dropout', type=float, default=0.1)
 parser.add_argument('--dff', type=int, default=512)
 parser.add_argument('--dense_n', type=int, default=512)
-parser.add_argument('--concat_emb', type=int, default=0)
+parser.add_argument('--concat_emb', type=int, default=1)
 parser.add_argument('--max_epochs', type=int, default=10000)
-parser.add_argument('--augment', type=int, default=1)
+parser.add_argument('--augment', type=int, default=0)
 parser.add_argument('--base_model', type=str, default="None")
 parser.add_argument('--refine', type=int, default=0)
 parser.add_argument('--optimizer', type=str, default="adam")
 parser.add_argument('--activation', type=str, default="tanh")
 parser.add_argument('--ignore_features', type=int, default=0)
 parser.add_argument('--norm_layer', type=int, default=1)
-parser.add_argument('--num_emb_vec', type=int, default=4)
+parser.add_argument('--num_emb_vec', type=int, default=16)
 parser.add_argument('--sf', type=float, default=1.0)
 parser.add_argument('--lr_decay_factor', type=float, default=0.1)
 parser.add_argument('--lr_decay_patience', type=int, default=10)
@@ -170,7 +170,8 @@ n_samples, input_size = X.shape
 # Create a new experiment if one doesn't already exist
 # mlflow.create_experiment(args.exp_name)
 
-from TF4D_mult_features import *
+from TF4D_decoder_only import *
+
 
 reset_seed(seed)
 
@@ -190,7 +191,9 @@ bs=args.bs
 def prepare_x(x):
   objs = pad_array(list_to_wp_seq(x[:,obj_poses_indices],d=3),4,axis=-1) # no speed
   trajs = list_to_wp_seq(x[:,traj_indices],d=4)
-  return np.concatenate([objs,trajs],axis = 1)
+  #   return np.concatenate([objs,trajs],axis = 1)
+  return trajs[:,:-1,:]
+
 
 train_dataset = tf.data.Dataset.from_tensor_slices((prepare_x(X_train),
                                                   list_to_wp_seq(y_train,d=4),
@@ -205,9 +208,9 @@ test_dataset = tf.data.Dataset.from_tensor_slices((prepare_x(X_test),
                                                   X_test[:,embedding_indices])).batch(bs)
 print("test dataset created")
 
-num_batches = 423
-# for (batch, (_,_,_)) in enumerate(train_dataset):
-#     num_batches = batch
+num_batches = 0
+for (batch, (_,_,_)) in enumerate(train_dataset):
+    num_batches = batch
 
 val_batches = 0
 for (batch, (_,_,_)) in enumerate(val_dataset):
@@ -241,9 +244,7 @@ param = dict(num_layers_enc = args.num_enc,
                 optimizer=args.optimizer,
                 norm_layer=norm_layer,
                 activation=args.activation,
-                loss=args.loss,
-                sf = args.sf,
-                augment=args.augment)
+                loss=args.loss)
 
 param_s = json.dumps(param)
 model_name = "TF"
@@ -305,24 +306,26 @@ def evaluate_model(model, epoch):
 
     result_eval = model.evaluate((x_test_new, y_test_new[:,:-1,:], emb_test_new), y_test_new[:,1:,:])
 
-    print("\n ----------------------------------------")
-    print("withdata generation:")
-    test_dataset = tf.data.Dataset.from_tensor_slices((prepare_x(X_test),
-                                                    list_to_wp_seq(y_test,d=4),
-                                                    X_test[:,embedding_indices])).batch(X_test.shape[0])
+    pred = model.predict([x_test_new, y_test_new[:,:-1,:], emb_test_new], verbose=0)
 
-    g = generator(test_dataset,stop=True,augment=False)
-    x_t, y_t = next(g)
-    pred = generate(model ,x_t, traj_n=traj_n).numpy()
-    print(pred.shape)
-    result_gen = np.average((y_t - pred[:,1:,:])**2)
-    print("Test loss w generation: ",result_gen)
+    # print("\n ----------------------------------------")
+    # print("withdata generation:")
+    # test_dataset = tf.data.Dataset.from_tensor_slices((prepare_x(X_test),
+    #                                                 list_to_wp_seq(y_test,d=4),
+    #                                                 X_test[:,embedding_indices])).batch(X_test.shape[0])
 
-    print("computing metrics...")
-    metrics, metrics_h = compute_metrics(y_t.numpy()[:,:,:3],pred[:,1:,:3])
+    # g = generator(test_dataset,stop=True,augment=False)
+    # x_t, y_t = next(g)
+    # pred = generate(model ,x_t, traj_n=traj_n).numpy()
+    # print(pred.shape)
+    # result_gen = np.average((y_t - pred[:,1:,:])**2)
+    # print("Test loss w generation: ",result_gen)
+
+    # print("computing metrics...")
+    metrics, metrics_h = compute_metrics(pred[:,:,:3],y_test_new[:,1:,:3])
 
     with file_writer.as_default():
-        tf.summary.scalar('test_result_gen', data=result_gen, step=epoch)
+        # tf.summary.scalar('test_result_gen', data=result_gen, step=epoch)
         tf.summary.scalar('test_result_eval', data=result_eval, step=epoch)
 
         for k in metrics.keys():
@@ -348,7 +351,7 @@ earlly_stop_cb = tf.keras.callbacks.EarlyStopping(monitor='val_loss',  mode='min
 tensorboard_cb = tf.keras.callbacks.TensorBoard(logdir, histogram_freq=0)
 checkpoint_cb = tf.keras.callbacks.ModelCheckpoint(model_file, verbose=0,
                                                     monitor='val_loss', mode='min', save_best_only=True)
-rlrp = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=args.lr_decay_factor, patience=args.lr_decay_patience, min_delta=1E-7, min_lr=1E-9)
+rlrp = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=args.lr_decay_factor, patience=args.lr_decay_patience, min_delta=1E-7)
 
 
 # monitor the learning rate
@@ -381,7 +384,7 @@ def warmup(v,ep):
     return [(i,1) for i in np.linspace(v/ep, v, num=ep)]
 
 warmup_epochs = 15
-lr_schedule = warmup(1e-4,warmup_epochs)+[(1e-4,args.epochs)]
+lr_schedule = warmup(1e-4,warmup_epochs)+[(1e-4,500)]
 if args.test:
     lr_schedule = [(1e-4,1 if args.epochs == 0 else args.epochs)]
     warmup_epochs = 0

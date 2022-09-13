@@ -23,7 +23,7 @@ conda activate py38
 ```
 Install CLIP + opencv
 ```
-pip install ftfy regex tqdm dqrobotics rospkg
+pip install ftfy regex tqdm dqrobotics rospkg similaritymeasures
 pip install git+https://github.com/openai/CLIP.git
 pip install opencv-python
 ```

@@ -165,7 +165,7 @@ class Motion_refiner():
         img = self.CLIP_preprocess(Image.open(img_path)).unsqueeze(0).to(self.device)
         return img
 
-    def load_dataset(self, dataset_name, filter_data=False, base_path=base_path):
+    def load_dataset(self, dataset_name, filter_data=False, base_path=base_path, lower_limit=-0.78, upper_limit=0.78):
 
         # ------- load data --------
         print("loading dataset: ",dataset_name,end=" ...")
@@ -176,7 +176,7 @@ class Motion_refiner():
 
         print("raw X:",X_.shape,"\tY:",Y_.shape)
         if filter_data:
-            X,Y, data, i_invalid = filter(X_,Y_,data_) #for delta predictions
+            X,Y, data, i_invalid = filter(X_,Y_,data_,lower_limit=lower_limit, upper_limit=upper_limit) #for delta predictions
             print("filtered X:",X.shape,"\tY:",Y.shape)
         else:
             X,Y, data = X_,Y_, data_
