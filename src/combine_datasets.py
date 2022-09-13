@@ -13,12 +13,12 @@ from config import *
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--dataset_dir', default=data_folder)
-parser.add_argument('--augment_text', default="None")
-parser.add_argument('--new_dataset_name', default="4D_cliponly_sf_100k")
-parser.add_argument('--set_name', default="clip_only_2/")
 parser.add_argument('--dataset_name', default=dataset_name)
+parser.add_argument('--augment_text', default="None")
+parser.add_argument('--new_dataset_name', default=dataset_name)
+parser.add_argument('--set_name', default="new100k")
+parser.add_argument('--clip_only', type=int, default=False)
 
-parser.add_argument('--clip_only', type=bool, default=False)
 
 
 args = parser.parse_args()
@@ -126,10 +126,11 @@ print(len(data))
 print("saving data...")
 
 dataset_name = args.new_dataset_name
-while os.path.exists(dataset_folder+"X"+dataset_name+".npy"):
+while os.path.exists(args.dataset_dir+"X"+dataset_name+".npy"):
     print("dataset_already exists")
     dataset_name+="_"
 # # # ------- save pre processed data -------
+print(args.dataset_dir+"X"+dataset_name)
 mr.save_XY(X, Y, x_name="X"+dataset_name,y_name="Y"+dataset_name,base_path=args.dataset_dir)
 mr.save_data(data,data_name="data"+dataset_name,base_path=args.dataset_dir)
 

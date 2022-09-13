@@ -16,8 +16,6 @@ CHANGE_WEIGHT = 100.0
 #   Sharpness / smoothness: make sharper/smoother/open/close turns/curves (8)
 
 
-
-
 def repel(pts_raw,args, s=1.0,p=None,w=1.0):
 
 
@@ -45,7 +43,7 @@ def repel(pts_raw,args, s=1.0,p=None,w=1.0):
     return F
 
 
-def cartesian_grad(pts_raw,args,dir=[1.0,0.0,0,0],center=[50,50], r = 60,w = 0.01):
+def cartesian_grad(pts_raw,args,dir=[1.0,0.0,0,0],w = 0.01):
    
     pts = pts_raw[:,:3]
     base_w = -0.2
@@ -56,7 +54,15 @@ def cartesian_grad(pts_raw,args,dir=[1.0,0.0,0,0],center=[50,50], r = 60,w = 0.0
     F[:,:3] = d*f*w*base_w
     return F
 
-
+def force_cartesian_grad(pts_raw,args,dir=[1.0,0.0,0,0],s = 1.0):
+   
+    pts = pts_raw[:,:3]
+    base_w = -0.01
+    f = 0.2
+    d = np.ones_like(pts)*dir
+    F = np.zeros_like(pts_raw)
+    F[:,:3] = d*f*s*base_w
+    return F
 #functions to change the map cost
 # def repel(x,y,s=1.0,p=None,w=1.0):
 #     # print("p = ",p)
@@ -95,20 +101,31 @@ def speed(pts_raw,args, s=1.0,p=None,w=1.0):
     return F
 
 
-# def cartesian_grad(x,y,dir=[1.0,0.0],center=[50,50], r = 60):
-#     w = 10.0
-#     norm = math.hypot(dir[0],dir[1])
-#     cost = 1.0
-#     d = ((x-center[0])*dir[0]+(y-center[1])*dir[1])/norm
+def force(pts_raw,args, s=1.0,p=None,w=1.0):
 
-#     # max_d  = (end[0]-start[0])*dir[0]+(end[1]-start[1])*dir[1]
-#     max_d = 2*r
-#     cost = 0
-#     if(d>r):cost = 1.0
-#     elif(d<-r):cost = 2.0
-#     else: cost = np.clip(1.5+(-d)/abs(max_d),0.001,2.0)# linear decay
+    MAX_REP_R = 0.6
     
-#     return cost
+    if type(args) is dict and "max_r" in args.keys():
+        MAX_REP_R = args["max_r"]
+
+    MIN_REP_R = 0.01 
+    base_w = 0.005
+
+    pts = pts_raw[:,:3]
+    diff = pts-p
+
+    dist = np.expand_dims(np.linalg.norm(diff,axis=1),-1)
+    dir = np.divide(diff, dist, out=np.zeros_like(diff), where=dist!=0)
+
+
+    # f = np.divide(-s*(MAX_REP_R-dist), MAX_REP_R, out=np.zeros_like(dist), where=dist<MAX_REP_R)
+    f = np.divide(-s*(MAX_REP_R/2), MAX_REP_R, out=np.zeros_like(dist), where=(dist>MIN_REP_R)&(dist<MAX_REP_R))
+    
+    F = np.zeros_like(pts_raw)
+    F[:,:3] = dir*f*w*base_w
+
+    return F
+
 
 def get_map_cost(f_list):
     keys = {}
@@ -128,7 +145,6 @@ def get_map_cost(f_list):
                     # print(f[2])
                     # print('keys: ',[k for k in f[2] if k in keys.keys()])
                     # print('args: ',args)
-                
                 cost *= f[0](pt,a,*args)
         return cost*CHANGE_WEIGHT
     return map_cost
@@ -192,10 +208,58 @@ class Label_generator:
                         "bottom part":{"before":cartesian_verbs,"func":(cartesian_grad,[0.0,0.0,-1.0])},
                         "bottom":{"before":cartesian_verbs,"func":(cartesian_grad,[0.0,0.0,-1.0])}}
 
-    # force_verbs = ["press","push", "pull", "pressure"]
-    # force_change = {"stronger ":{"before":(force_verbs, change_intensity),"after":spatial_dep,"func":(force,1.0, ["obj_p","w"])},}
 
-    change_type = {"dist":(dist_change),"speed":(speed_change),"cartesian":(cartesian_change)}#, "force":(force_change)}
+    force_spatial_verbs = ["touching the ", "interacting with the ", "next to the ", "inside the ", "near the "]
+    condition_words = ["when ", "while "]
+    
+    force_spatial_dep = {"skinn of the ":{"before":(condition_words, force_spatial_verbs),"after":objs},
+                  "surface of the ":{"before":(condition_words, force_spatial_verbs),"after":objs},
+                  "":{"before":(condition_words, force_spatial_verbs),"after":objs},
+                  "the ":{"before":[],"after":objs},
+                  "":{"before":[],"after":[]}}
+
+
+    force_verbs = ["press ","push ", "pull ", "scoope ", "cut ", "rub "]
+
+    force_intensity = {"a bit ":{"before":[],"after":[],"value":{"w":0.7}},
+                        "a little ":{"before":[],"after":[],"value":{"w":0.7}},
+                        "much ":{"before":[],"after":[],"value":{"w":1.5}},
+                        "a lot ":{"before":[],"after":[],"value":{"w":1.5}},
+                        "":{"before":[],"after":[],"value":{"w":1.0}}}
+
+    force_cartesian_directions = {"left ":{"before":("to the "),"funcforce_":(cartesian_grad, [-1.0,0.0,0.0],["w"])},
+                        "right ":{"before":("to the "),"func":(force_cartesian_grad, [1.0,0.0,0.0],["w"])},
+                        "front ":{"before":("to the "),"func":(force_cartesian_grad, [0.0,1.0,0.0],["w"])},
+                        "back ":{"before":("to the "),"func":(force_cartesian_grad,[0.0,-1.0,0.0],["w"])},
+                        "bottom ":{"before":("to the "),"func":(force_cartesian_grad,[0.0,0.0,-1.0],["w"])},
+                        "top ":{"before":("to the "),"func":(force_cartesian_grad,[0.0,0.0,1.0],["w"])},
+                        "down ":{"before":[],"func":(force_cartesian_grad,[0.0,0.0,-1.0],["w"])},
+                        "up ":{"before":[],"func":(force_cartesian_grad,[0.0,0.0,1.0],["w"])}}
+
+    force_change = {"stronger ":{"before":(force_verbs, force_intensity),"after":(force_spatial_dep),"func":(force,-1.0, ["obj_p","w"])},
+                    "harder ":{"before":(force_verbs, force_intensity),"after":(force_spatial_dep),"func":(force,-1.0, ["obj_p","w"])},
+                    "deeper ":{"before":(force_verbs, force_intensity),"after":(force_spatial_dep),"func":(force,-1.0, ["obj_p","w"])},
+                    "weaker ":{"before":(force_verbs, force_intensity),"after":(force_spatial_dep),"func":(force,1.0, ["obj_p","w"])},
+                    "softer ":{"before":(force_verbs, force_intensity),"after":(force_spatial_dep),"func":(force,1.0, ["obj_p","w"])},
+                    "lighter ":{"before":(force_verbs, force_intensity),"after":(force_spatial_dep),"func":(force,1.0, ["obj_p","w"])},
+
+                    "more ":{"before":(force_verbs, force_intensity),"after":(force_spatial_dep),"func":(force,-1.0, ["obj_p","w"])},
+                    "less ":{"before":(force_verbs, force_intensity),"after":(force_spatial_dep),"func":(force,1.0, ["obj_p","w"])}
+    }
+    
+    catesian_force_change = {"stronger ":{"before":(force_verbs, force_intensity),"after":force_cartesian_directions,"value":{"s":1.0}},
+                    "harder ":{"before":(force_verbs, force_intensity),"after":force_cartesian_directions,"value":{"s":1.0}},
+                    "deeper ":{"before":(force_verbs, force_intensity),"after":force_cartesian_directions,"value":{"s":1.0}},
+                    "weaker ":{"before":(force_verbs, force_intensity),"after":force_cartesian_directions,"value":{"s":-1.0}},
+                    "softer ":{"before":(force_verbs, force_intensity),"after":force_cartesian_directions,"value":{"s":-1.0}},
+                    "lighter ":{"before":(force_verbs, force_intensity),"after":force_cartesian_directions,"value":{"s":-1.0}},
+
+                    "more ":{"before":(force_verbs, force_intensity),"after":force_cartesian_directions,"value":{"s":1.0}},
+                    "less ":{"before":(force_verbs, force_intensity),"after":force_cartesian_directions,"value":{"s":-1.0}}
+    }
+
+    change_type = {"dist":(dist_change),"speed":(speed_change),"cartesian":(cartesian_change),"force":(force_change),"cartesian force":(catesian_force_change)}
+
 
 
     # Causality / Dependence:
@@ -214,9 +278,13 @@ class Label_generator:
 
         for k in self.dist_change.keys():
             self.dist_change[k]["after"] = self.objs
+
         for k in self.spatial_dep.keys():
             if k != "":
                 self.spatial_dep[k]["after"] = self.objs
+        for k in self.force_spatial_dep.keys():
+            if k != "":
+                self.force_spatial_dep[k]["after"] = self.objs
         self.labels = []
         
     def generate_labels(self,change_names, shuffle=True):
@@ -245,7 +313,7 @@ class Label_generator:
         # print(p)
         text = ""
         
-        if isinstance(p, tuple) and len(p)>0:
+        if isinstance(p, tuple) and len(p)>0: # sequence of items
             for p1,f1 in self.next_label(p[0],func_list=func_list):
                 for p2,f2 in self.next_label(p[1], func_list=func_list):
                     f = []
@@ -253,10 +321,11 @@ class Label_generator:
                     if f2: f += f2
                     yield (p1 + p2, f)
             
-        elif isinstance(p, list) and len(p)>0:
+        elif isinstance(p, list) and len(p)>0: # list of possible items
             # yield from p
             for i in p:
                 yield (i,None)
+
         elif isinstance(p, dict):
 
             for c_text,c_value in p.items():
@@ -307,16 +376,21 @@ def recursive_label(p):
     return text
 
 
-
 def main():
     global f_list
     # obj_names = random.sample(obj_names, random.randint(0,MAX_OBJS))
 
-    lg = Label_generator({"table":{"value":{"obj_p":[1,1]}},
-                        "chair":{"value":{"obj_p":[2,2]}},
-                        "tree":{"value":{"obj_p":[4,4]}}})
-    lg = Label_generator({"object X":{"value":{"obj_p":[1,1]}}})
-    lg.generate_labels()
+    lg = Label_generator({"table":{"value":{"obj_p":[1,1]}}})
+    # lg = Label_generator({"object X":{"value":{"obj_p":[1,1]}}})
+    lg.generate_labels(["force"])
+
+    # for i in lg.labels:
+    #     print(i[0], i[1])
+
+
+
+
+    
     # j = 0
     # for i,f in lg.next_label(change_type["dist"], new=True):
     #     # print("\n")

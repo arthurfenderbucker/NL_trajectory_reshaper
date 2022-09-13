@@ -72,7 +72,7 @@ class Motion_refiner():
                 with open(image_dataset_folder+"images_clip_emb.json") as f:
                     self.precomputed_img_emb = json.load(f)
                 print("done")
-                    
+                # print(self.precomputed_img_emb.keys())
             print("DEVICE: ",self.device)
 
         self.locality_factor = locality_factor
@@ -318,7 +318,8 @@ class Motion_refiner():
                 if imgs is None:
                     images = torch.concat([self.CLIP_preprocess(Image.open(im)).unsqueeze(0) for im in b])
                 else:
-                    images = torch.concat([self.CLIP_preprocess(im).unsqueeze(0) for im in imgs])
+
+                    images = torch.concat([self.CLIP_preprocess(Image.fromarray(im)).unsqueeze(0) for im in imgs])
 
                 yield classes,images
 
@@ -441,7 +442,7 @@ class Motion_refiner():
     def get_indices(self):
         return self.feature_indices, self.obj_sim_indices, self.obj_poses_indices, self.traj_indices
 
-    def prepare_data(self, data, deltas=False, label=True, interpolation="spline", verbose=1,change_img_base=None, images=None ):
+    def prepare_data(self, data, deltas=False, label=True, interpolation="spline", verbose=1,change_img_base=None, images=None,output_forces=False):
         """Preprocess dataset"""
 
         # compute embeddings and similarity
@@ -464,7 +465,9 @@ class Motion_refiner():
                         
             if not change_img_base is None:
                 for ti in range(len(image_paths)):
-                    image_paths[ti] = image_paths[ti].replace(change_img_base[0], change_img_base[1])    
+                    image_paths[ti] = image_paths[ti].replace(change_img_base[0], change_img_base[1]) 
+                #     print(image_paths[ti])
+                # print(change_img_base[0], change_img_base[1])
 
             d['similarity'] = self.compute_clip_similarity(d["obj_names"], [d["text"]], images_path = image_paths, text_feature=clip_text_features[i,np.newaxis], images=images)
             # print(d["obj_names"])
@@ -484,7 +487,7 @@ class Motion_refiner():
             #     np.array(d["input_traj"]).T, interpolation=interpolation)
 
             if label:
-                traj_o = np.array(d["output_traj"])
+                traj_o = np.array(d["output_traj"] if not output_forces else d["forces"])
                 x_o, y_o, z_o, vel_o = traj_o[:,0],traj_o[:,1],traj_o[:,2], traj_o[:,3]
 
                 if deltas:

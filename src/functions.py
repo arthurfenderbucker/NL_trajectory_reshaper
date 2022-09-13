@@ -12,6 +12,9 @@ from tqdm import tqdm
 import os
 import similaritymeasures
 
+from matplotlib.patches import FancyArrowPatch
+from mpl_toolkits.mplot3d import proj3d
+
 # ================= plot functions ====================
 
 
@@ -233,10 +236,24 @@ def plot_dist(x):
 # =============== plot 3D and 4D functions =====================
 
 
+class Arrow3D(FancyArrowPatch):
+    def __init__(self, xs, ys, zs, *args, **kwargs):
+        super().__init__((0,0), (0,0), *args, **kwargs)
+        self._verts3d = xs, ys, zs
+
+    def do_3d_projection(self, renderer=None):
+        xs3d, ys3d, zs3d = self._verts3d
+        xs, ys, zs = proj3d.proj_transform(xs3d, ys3d, zs3d, self.axes.M)
+        self.set_positions((xs[0],ys[0]),(xs[1],ys[1]))
+
+        return np.min(zs)
+
+
+
 def show_data4D(d_,image_loader= None,pred=None, show=True,color_traj=True, obj_txt=False,arrows=True,file = "", cmap=None,
         n_col = 2, obj_c ="#363634", grid_c="#cfcfcf",ref_c = "#d10808", label_c = "#3082e6", pred_c = "#2dd100", delta_c = "#e3d64b",
         fig_mult=3,new_fig = True, n=3, abs_pred=False,  show_label=True, show_interpolated=False, show_original=True,
-        change_img_base=None):
+        change_img_base=None, plot_forces=False,plot_output=True):
 
     # if isinstance(pred, np.ndarray) and len(pred.shape) > 2:
     #     print("reshaping")
@@ -279,6 +296,9 @@ def show_data4D(d_,image_loader= None,pred=None, show=True,color_traj=True, obj_
         # lg_ct = d["change_type"]
         # mi = d["map_id"]
         image_paths = d["image_paths"]
+        forces=None
+        if "forces" in d.keys():
+            forces = d["forces"]
 
         if not change_img_base is None:
             for ti in range(len(image_paths)):
@@ -289,7 +309,7 @@ def show_data4D(d_,image_loader= None,pred=None, show=True,color_traj=True, obj_
             objs[name] = {"value":{"obj_p":[x,y,z]}}
 
         new_pts_list = [pts_new]
-        if d["output_traj"] is None:
+        if d["output_traj"] is None or not plot_output:
             new_pts_list = []
 
         if not pred is None:
@@ -303,7 +323,7 @@ def show_data4D(d_,image_loader= None,pred=None, show=True,color_traj=True, obj_
         if not image_loader is None:
             objs_images = [image_loader(im) for im in image_paths]
 
-        plot_samples(text,pts,new_pts_list, images=objs_images,objs=objs, color_traj =color_traj)
+        plot_samples(text,pts,new_pts_list, images=objs_images,objs=objs, color_traj =color_traj,forces=forces)
 
 
         # if color_traj:
@@ -329,8 +349,8 @@ def plot3Dcolor(x, y, z, c, ax=None, cmap=None, **args):
 
     
 
-def plot_samples(text,pts,pts_new_list, images=[], fig=None,objs=None, colors = ["#0071b3", "#1e0191"],
-                plot_voxels= False, color_traj = False, map_cost_f=None, labels=[]):
+def plot_samples(text,pts,pts_new_list, images=[], fig=None,objs=None, colors = ["#0071b3", "#1e0191"],alpha=[0.9,0.9],
+                plot_voxels= False, color_traj = False, map_cost_f=None, labels=[], plot_speed=True, show=True, forces=None):
     
     start_color = "red"
     if len(labels) == 0:
@@ -346,35 +366,36 @@ def plot_samples(text,pts,pts_new_list, images=[], fig=None,objs=None, colors = 
     # plot3Dcolor(x_init, y_init, z_init, vel_init,ax=ax, cmap=cmap,linewidth=5.0)
     
     x_init, y_init, z_init, vel_init = pts[:,0],pts[:,1],pts[:,2], pts[:,3]
-    ax.plot(x_init, y_init, z_init,alpha=0.9,color="red", label="ORIGINAL") #alpha sets the darkness of the path.
-
+    line, = ax.plot(x_init, y_init, z_init,alpha=0.9,color="red", label="ORIGINAL") 
     if color_traj:
         norm = matplotlib.colors.Normalize(vmin=-0.5, vmax=0.5)
         fig.colorbar(cm.ScalarMappable(norm=norm, cmap=cmap), ax=ax, fraction=0.026, pad=0.04,label='speed change')
 
 
-    ax2 = fig.add_subplot(9,2,18)
-    ax2.plot(np.arange(len(vel_init)),vel_init+1,color="red",label="original")
+    if plot_speed:
+        ax2 = fig.add_subplot(9,2,18)
+        ax2.plot(np.arange(len(vel_init)),vel_init+1,color="red",label="original")
 
     for i, pts_new in enumerate(pts_new_list):
         x_new, y_new, z_new, vel_new = pts_new[:,0],pts_new[:,1],pts_new[:,2],pts_new[:,3]
 
         color = colors[i] if i < len(colors)-1 else "#"+''.join([random.choice('0123456789ABCDEF') for j in range(6)])    
+        alpha_ = alpha[i+1] if i+1 < len(alpha)-1 else 0.9    
+
         if color_traj:
             plot3Dcolor(x_new, y_new, z_new, vel_new-vel_init+0.5,ax=ax, cmap=cmap,linewidth=5.0)
             
         else:
-            ax.plot(x_new, y_new, z_new,alpha=0.9, color=color, label=labels[i]) #alpha sets the darkness of the path.
+            ax.plot(x_new, y_new, z_new,alpha=alpha_, color=color, label=labels[i]) 
         
         
+        if plot_speed:
+            ax2.plot(np.arange(len(vel_init)),vel_new+1,color=color, label=labels[i])
+            ax2.set_xlabel('waypoints')
+            ax2.set_ylabel('')
+            ax2.set_title("speed profile")
         
-        ax2.plot(np.arange(len(vel_init)),vel_new+1,color=color, label=labels[i])
-        ax2.set_xlabel('waypoints')
-        ax2.set_ylabel('')
-
-        ax2.set_title("speed profile")
-        
-        ax.scatter(x_new[:-1], y_new[:-1], z_new[:-1],alpha=0.9,color=color) #alpha sets the darkness of the path.
+        # ax.scatter(x_new[:-1], y_new[:-1], z_new[:-1],alpha=0.9,color=color) 
 
         if plot_voxels and not map_cost_f is None:
             grid = np.mgrid[0:1:0.1,0:1:0.1,0:1:0.1]
@@ -393,6 +414,15 @@ def plot_samples(text,pts,pts_new_list, images=[], fig=None,objs=None, colors = 
             m = cm.ScalarMappable(cmap=plt.cm.plasma, norm=norm)
             m.set_array([])
             plt.colorbar(m)
+
+    if not forces is None:
+        for i, (pt, f) in enumerate(zip(pts, forces)):
+            s=10.0
+            a = Arrow3D([pt[0], pt[0]+f[0]*s], [pt[1], pt[1]+f[1]*s], 
+                    [pt[2], pt[2]+f[2]*s], mutation_scale=5, 
+                    lw=1, arrowstyle="-|>", color="b")
+            ax.add_artist(a)
+
 
     ax.set_xlabel('X axis')
     ax.set_ylabel('Y axis')
@@ -430,10 +460,16 @@ def plot_samples(text,pts,pts_new_list, images=[], fig=None,objs=None, colors = 
     # handles, labels = ax.get_legend_handles_labels()
     # ax.legend(handles[::-1], labels[::-1])
 
+    if plot_speed:
+        handles, labels = ax2.get_legend_handles_labels()
+        ax.legend(handles[::-1], labels[::-1])
+    else:
+        handles, labels = ax.get_legend_handles_labels()
+        ax.legend(handles[::-1], labels[::-1])
 
-    handles, labels = ax2.get_legend_handles_labels()
-    ax.legend(handles[::-1], labels[::-1])
-    plt.show()
+    if show:
+        plt.show()
+    return fig
 
 
 def set_axes_equal(ax):
@@ -592,6 +628,40 @@ def compute_metrics(trajs_x, trajs_y, filter_nan=False):
 
 # ============= trajectories functions ===============
 
+
+def incorporate_speed(wps, dt=0.1, N=100,speed_offset=1):
+    
+    #create spline function
+    wp_diff = wps[1:,:3]-wps[:-1,:3]
+    len_diff = np.linalg.norm(wp_diff, axis=1)
+    len_total = np.sum(len_diff)
+
+    # t_total = dt*wps.shape[0]
+
+    speed= wps[:,3]+speed_offset
+    dist_covered = 0
+    dist_profile = [0]
+    time_covered = 0
+    new_wps=wps[:1,:3]
+    i = 0
+    for j,t in enumerate(range(N-1)):
+        # print(i)
+        step_d = dt*speed[i]
+        # print(len_total)
+        if step_d+dist_profile[-1] < len_total:
+            # print(step_d+dist_profile[-1], dist_covered+len_diff[i])
+            while step_d+dist_profile[-1] > dist_covered+len_diff[i]:
+                dist_covered += len_diff[i]
+                i+=1
+            
+            new_wp = wps[i,:3]+(step_d+dist_profile[-1]-dist_covered)*wp_diff[i]
+        else:
+            # print(j, "DONE")
+            new_wp = wps[-1,:3]
+        new_wps = np.append(new_wps, [new_wp],axis=0)            
+        dist_profile.append(step_d+dist_profile[-1])
+    return new_wps
+
 def prepare_x(x, traj_indices, obj_poses_indices):
   objs = pad_array(list_to_wp_seq(x[:,obj_poses_indices],d=3),4,axis=-1) # no speed
   trajs = list_to_wp_seq(x[:,traj_indices],d=4)
@@ -723,7 +793,14 @@ def reset_logs(logdir):
 
 def reset_seed(seed = 42):
     tf.random.set_seed(seed)
-    # tf.keras.utils.set_random_seed(seed)
+    try: # versions of Tensorflow
+        tf.keras.utils.set_random_seed(seed)
+    except:
+        pass
+    try:
+        tf.set_random_seed(seed)
+    except:
+        pass
     np.random.seed(seed)
     random.seed(seed)
     os.environ['PYTHONHASHSEED']=str(seed)

@@ -62,11 +62,76 @@ mae:	 0.018259557527779528
 mse:	 0.0011547148149285021
 
 
+No language (universal prior):
 
-
+620/620 [==============================] - 17s 22ms/step - loss: 2.2461e-04 - mean_squared_error: 2.2461e-04
+withdata generation:
+(19819, 40, 4)
+Test loss w generation:  0.007125475964513205
+computing metrics...
+pcm:	 nan
+dfd:	 0.1338629440990762
+area:	 0.05738900094528982
+cl:	 nan
+dtw:	 3.4807766633580357
+mae:	 0.048366574758412995
+mse:	 0.0038359615909820542
 
 
 naive predictor:
 
+pcm:	 nan
+dfd:	 0.14606799108660493
+area:	 0.027892437444718723
+cl:	 nan
+dtw:	 3.789714883393604
+mae:	 0.02784615995780797
+mse:	 0.005119454187622462
 
 
+decoder only
+62/62 [==============================] - 3s 20ms/step - loss: 0.0023
+pcm:	 2.231290107456451
+dfd:	 0.0983848282316839
+area:	 0.029342216486040292
+cl:	 nan
+dtw:	 1.6365139757219849
+mae:	 0.02344520255533596
+mse:	 0.0011179067501338306
+
+
+
+
+
+
+===========================================================================================================
+===================================== dataset comparison img vs text ======================================
+
+icra_dataset_img_vs_text_lr_1e-4_epo_500_nume_1_numd_5_mod_400_dss_1_aug_1_dat_4D_100k_imgs_sf
+
+Test loss w generation:  0.00343925650546897
+computing metrics...
+pcm:	 nan
+dfd:	 0.0626913123937478
+area:	 0.026489049200738912
+cl:	 nan
+dtw:	 1.4862932964163016
+mae:	 0.020849439448107923
+mse:	 0.0013920075007864262
+
+
+loading weights:  /mnt/tumdata_out/models/ICRA_dataset_img_vs_text/TF-num_layers_enc:1-num_layers_dec:5-d_model:400-dff:512-num_heads:8-dropout_rate:0.1-wp_d:4-num_emb_vec:4-bs:16-dense_n:512-num_dense:3-concat_emb:True-features_n:793-optimizer:adam-norm_layer:True-activation:tanh-loss:mse.h5
+
+icra_dataset_img_vs_text_lr_1e-4_epo_500_nume_1_numd_5_mod_400_dss_1_aug_1_dat_4D_100k_scaping_factor
+
+loss: 1.0766e-04 - LDA: 0.0066
+
+Test loss w generation:  0.0032530718691837347
+computing metrics...
+pcm:	 nan
+dfd:	 0.05650419865746474
+area:	 0.0238858416598814
+cl:	 nan
+dtw:	 1.315052762169917
+mae:	 0.01786498991135317
+mse:	 0.000985844742691565

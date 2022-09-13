@@ -28,14 +28,19 @@ parser.add_argument('--image_dataset_dir', default=image_dataset_folder)
 parser.add_argument('--prefix', default='0')
 parser.add_argument('--labels_per_map',type=int, default=1)
 parser.add_argument('--n_map',type=int, default=5000)
-parser.add_argument('--threads',type=int, default=20)
+parser.add_argument('--threads',type=int, default=2)
 parser.add_argument('--clip_only', type=bool, default=False)
+parser.add_argument('--forces_only', type=bool, default=False)
+
 
 
 args = parser.parse_args()
 
+forces_only = True if args.forces_only == 1 else False
 clip_only = True if args.clip_only == 1 else False
-print(clip_only)
+print("forces_only: ",forces_only)
+print("clip_only: ",clip_only)
+
 
 traj_n = args.traj_n
 mr = Motion_refiner(traj_n = traj_n, clip_only=clip_only, locality_factor=True, poses_on_features=True, load_precomp_emb=True)
@@ -56,28 +61,26 @@ if not os.path.exists(exp_folder):
     os.makedirs(exp_folder)
 
 
-    
-
 ## ------- processed data -------
 def generate_XY(data,folder_and_prefix,i=""):
-    try:
-        X,Y = mr.prepare_data(data,deltas=False, change_img_base=['/mnt/tumdata/image_dataset','/home/arthur/data/image_dataset/'])
-        print(i,"X: ",X.shape)
-        print(i,"Y: ",Y.shape)
-        print(i,"DONE computing embeddings")
-        print(i,"saving data...")
-        # # ------- save pre processed data -------
-        x_name=folder_and_prefix+"X"+dataset_name
-        y_name=folder_and_prefix+"Y"+dataset_name
-        data_name=folder_and_prefix+"data"+dataset_name
+    # try:
+    X,Y = mr.prepare_data(data,deltas=False, change_img_base=['/home/arthur/image_dataset/','/home/arthur/data/image_dataset//'],output_forces=forces_only)
+    print(i,"X: ",X.shape)
+    print(i,"Y: ",Y.shape)
+    print(i,"DONE computing embeddings")
+    print(i,"saving data...")
+    # # ------- save pre processed data -------
+    x_name=folder_and_prefix+"X"+dataset_name
+    y_name=folder_and_prefix+"Y"+dataset_name
+    data_name=folder_and_prefix+"data"+dataset_name
 
 
-        mr.save_XY(X, Y, x_name=x_name,y_name=y_name, base_path=data_folder)
-        mr.save_data(data,data_name=data_name, base_path=data_folder)
-        print(i,"DONE ")
-    except Exception as e:
-        print(e)
-        print("\n",i," !!!!!! failed computing embeddings !!!!!!\n")
+    mr.save_XY(X, Y, x_name=x_name,y_name=y_name, base_path=data_folder)
+    mr.save_data(data,data_name=data_name, base_path=data_folder)
+    print(i,"DONE ")
+    # except Exception as e:
+    #     print(e)
+    #     print("\n",i," !!!!!! failed computing embeddings !!!!!!\n")
 
 def generation_thread(i):
 
@@ -85,8 +88,13 @@ def generation_thread(i):
     print(data_folder+folder_and_prefix+"data_raw"+dataset_name+".json")
     # if not os.path.exists(data_folder+folder+str(i)+"data_raw"+dataset_name+".json"):
     print(i,": starting")
-    dg = data_generator({'dist':1,'speed':1, 'cartesian':1}, obj_lib_file= obj_lib_file, images_base_path=images_base_path)
-    data = dg.generate(args.n_map,args.labels_per_map,N=[50,100],n_int=[3,15])
+
+    if forces_only:
+
+        dg = data_generator({'force':1,'cartesian force':1}, obj_lib_file= obj_lib_file, images_base_path=images_base_path)
+    else:
+        dg = data_generator({'dist':1,'speed':1, 'cartesian':1}, obj_lib_file= obj_lib_file, images_base_path=images_base_path)
+    data = dg.generate(args.n_map,args.labels_per_map,N=[50,100],n_int=[3,15],output_forces=forces_only)
     print(i,len(data))
     print(i,"DONE generating")
     # mr.save_data(data,data_name=folder_and_prefix+"data_raw"+dataset_name, base_path=data_folder)
@@ -98,8 +106,6 @@ def generation_thread(i):
     generate_XY(data,folder_and_prefix,i=i)
     gc.collect()
     del(data)
-    del(X)
-    del(Y)
 
     # print("\n validating")
     # X_,Y_, data_ = mr.load_dataset(dataset_name, filter_data = True, base_path=args.dataset_dir)
@@ -114,12 +120,17 @@ if os.path.exists(exp_folder+"data_raw"+dataset_name+".json"):
         folder_and_prefix = folder+str(i)
         print(folder_and_prefix)
         generate_XY(data[int(i*len(data)/n):int((i+1)*len(data)/n)],folder_and_prefix,i=i)
-elif 0:
+else:
     for i in range(0,args.threads):
-        try:#
-            x = threading.Thread(target=generation_thread, args=(i,))
-            # logging.info("starting")
-            x.start()
+        try:
+            generation_thread(i)
         except:
-            print("Error: unable to start thread: ",i)
+            print("Error: unable complete generation ",i)
+
+        # try:#
+        #     x = threading.Thread(target=generation_thread, args=(i,))
+        #     # logging.info("starting")
+        #     x.start()
+        # except:
+        #     print("Error: unable to start thread: ",i)
 

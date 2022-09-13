@@ -67,6 +67,11 @@ python modify_draw.py
 > **NOTE:** this is the catkin config that I used to intall CVbridge with the Anaconda </br>
 ```catkin config -DPYTHON_EXECUTABLE=$CONDA_PREFIX/bin/python -DPYTHON_INCLUDE_DIR=$CONDA_PREFIX/include/python3.8 -DPYTHON_LIBRARY=$CONDA_PREFIX/lib/libpython3.8.so -DSETUPTOOLS_DEB_LAYOUT=OFF```
 
+For realtime object detection:
+```
+git clone https://github.com/arthurfenderbucker/realsense_3d_detector.git
+```
+
 ## Running with ROS
 terminal 1
 ```

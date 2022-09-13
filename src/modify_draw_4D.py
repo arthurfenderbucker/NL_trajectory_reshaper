@@ -42,9 +42,9 @@ parser.add_argument('--name', type=str, default="user")
 parser.add_argument('--trial', type=int, default=1)
 parser.add_argument('--original_traj', type=str, default=pkg_path+"/original_traj.npy")
 
-parser.add_argument('--model_path', type=str, default=models_folder+"TF4D_embVec_enc_dec/")
+parser.add_argument('--model_path', type=str, default=models_folder+"lr_decay/")
 parser.add_argument('--model_name', type=str,
-    default="TF-num_layers_enc:1-num_layers_dec:5-d_model:256-dff:512-num_heads:8-dropout_rate:0.1-wp_d:4-num_emb_vec:8-bs:16-dense_n:512-num_dense:3-concat_emb:True-features_n:792-optimizer:adam-norm_layer:True-activation:linear.h5")
+    default="TF-num_layers_enc:1-num_layers_dec:5-d_model:400-dff:512-num_heads:8-dropout_rate:0.1-wp_d:4-num_emb_vec:4-bs:16-dense_n:512-num_dense:3-concat_emb:True-features_n:793-optimizer:adam-norm_layer:True-activation:tanh.h5")
 
     # default="refined_refined_TF&num_layers_enc:2&num_layers_dec:4&d_model:256&dff:512&num_heads:8&dropout_rate:0.1&wp_d:2&bs:64&dense_n:512&num_dense:3&concat_emb:True&features_n:777&optimizer:RMSprop&norm_layer:True&activation:tanh.h5")
 
@@ -75,7 +75,9 @@ if ros_enabled:
     from sensor_msgs.msg import Image
     from geometry_msgs.msg import PoseStamped
     from visualization_msgs.msg import Marker, MarkerArray
-    from vision_msgs.msgs.msg import BoundingBox3D, BoundingBox3DArray
+    from darknet_ros_msgs.msg import BoundingBoxes, BoundingBox
+
+
     import rospy
 
 
@@ -91,13 +93,14 @@ original_traj = np.load(args.original_traj)
 base_path = args.user_trajs_path
 
 class Drawing_interface():
-    def __init__(self, user_name="user", img_file=args.img_file):
+    def __init__(self, user_name="user", img_file=args.img_file, use_images=True):
 
         self.img_file = img_file
         self.crop = np.array([[25, 25], [746, 406]])
 
         self.img = cv2.imread(self.img_file)
         self.base_img = cv2.imread(self.img_file)
+        self.use_images = use_images
 
         self.ix = -1
         self.iy = -1
@@ -167,6 +170,7 @@ class Drawing_interface():
 
     def redraw(self):
         self.img = self.base_img.copy()
+        self.draw_interaction()
         return
         self.draw_objs()
         self.draw_traj(self.points, self.traj_color)
@@ -174,7 +178,6 @@ class Drawing_interface():
             self.draw_traj(self.new_traj, self.new_traj_color_old)
         self.draw_traj(self.new_traj, self.new_traj_color)
 
-        self.draw_interaction()
 
     def event_cb(self, event, x, y, flags, param):
 
@@ -238,7 +241,7 @@ class Drawing_interface():
     def show(self):
         # cv2.imshow("Motion refiner", self.img[self.crop[0, 1]:self.crop[1, 1], self.crop[0, 0]:self.crop[1, 0]])
         cv2.imshow("Motion refiner", self.img)
-
+        # self.show_img_crops()
         # thresh = cv2.threshold(cv2.cvtColor(self.m, cv2.COLOR_BGR2GRAY),
         #                        cv2.getTrackbarPos('thresh', 'ctrl'),
         #                        255, cv2.THRESH_BINARY)[1]
@@ -265,9 +268,16 @@ class Drawing_interface():
     def get_img_crops(self):
         images=[]
         for b in self.objs_bbox:
-            x,y,w,h = b
-            images.append(self.img[x,x+w,y:y+h,:])
+            xmin,xmax,ymin,ymax = b
+            images.append(self.img[ymin:ymax,xmin:xmax,:])
         return images
+    def show_img_crops(self):
+        print("showing")
+
+        images=self.get_img_crops()
+        for i,im in enumerate(images):
+            cv2.imshow(str(i),im)
+            # cv2.waitKey(1)
 
     def set_text(self, text):
         self.text = text
@@ -498,13 +508,12 @@ def traj_cb(msg, di):
 
 def bbox_cb(msg, di):
     objs_bbox=[]
-    for b in msg.boxes:
-        x, y, dist = b.center.position.x, b.center.position.y, b.center.position.z
-        w, h, d = b.size.x, b.size.y, b.size.z
-        objs_bbox.append([x,y,w,h])
+    for b in msg.bounding_boxes:
+        xmin,xmax,ymin,ymax= b.xmin,b.xmax,b.ymin,b.ymax
+        objs_bbox.append([xmin,xmax,ymin,ymax])
     di.objs_bbox = np.array(objs_bbox)
 
-
+    # di.show_img_crops()
 def print_help():
 
     print("""\n\n\n-------------------keyboard commands------------------------
@@ -540,7 +549,7 @@ if load_models:
     model = load_model(model_file, delimiter="-")
     compile(model)
 
-mr = Motion_refiner(load_models=load_models, locality_factor=False)
+mr = Motion_refiner(load_models=load_models, locality_factor=True)
 
 di = Drawing_interface()
 # di.set_text("stay further away from the glasses")
@@ -558,10 +567,12 @@ traj_pub = rospy.Publisher("/traj", Path)
 new_traj_pub = rospy.Publisher("/new_traj", Path)
 
 objs_pub = rospy.Publisher("/obj_poses", Path)
-objs_sub = rospy.Subscriber("/objs_markers", MarkerArray, obj_marker_cb, di)
-traj_sub = rospy.Subscriber("/original_traj", Path, traj_cb, di)
-traj_sub = rospy.Subscriber("/original_traj", Path, traj_cb, di)
-bbox_sub = rospy.Subscriber("/objs_bbox", BoundingBox3DArray, bbox_cb, di)
+
+if live_image:
+    objs_sub = rospy.Subscriber("/objs_markers", MarkerArray, obj_marker_cb, di)
+    traj_sub = rospy.Subscriber("/original_traj", Path, traj_cb, di)
+
+    bbox_sub = rospy.Subscriber("/objs_bbox",  BoundingBoxes, bbox_cb, di)
 
 
 while not rospy.is_shutdown():

@@ -8,10 +8,15 @@ import re
 from mpl_toolkits.mplot3d import Axes3D #for plotting the 3-D plot.
 from scipy import interpolate
 from sklearn.utils import shuffle
+# from src.data_generator.labels_generator import Label_generator
+
 try:
-    from data_generator.labels_generator import Label_generator
+    from src.data_generator.labels_generator import Label_generator
 except:
-    from labels_generator import Label_generator
+    try:    
+        from data_generator.labels_generator import Label_generator
+    except:
+        from labels_generator import Label_generator
 import os
 import torch
 from typing import List
@@ -159,7 +164,7 @@ def apply_force(pts_raw,map_cost_f,att_points=[],locality_factor=1.0):
         F_wp_r = np.concatenate([-f_wp,null_wp],axis=0)
 
         F_wp = F_wp_l + F_wp_r
-        F_wp = np.concatenate([F_wp,np.zeros(F_wp[:,-1:].shape)],axis=-1) # add the speed component
+        F_wp = np.concatenate([F_wp,np.zeros(F_wp[:,-1:].shape)],axis=-1) # adds the speed component
 
 
         wp_diff_2 = (wps[2:]-wps[:-2])/2
@@ -171,7 +176,7 @@ def apply_force(pts_raw,map_cost_f,att_points=[],locality_factor=1.0):
 
         F_ang = c_delta*k_ang*c_dir
         F_ang = np.concatenate([null_wp,F_ang,null_wp],axis=0)
-        F_ang = np.concatenate([F_ang,np.zeros(F_ang[:,-1:].shape)],axis=-1) # add the speed component
+        F_ang = np.concatenate([F_ang,np.zeros(F_ang[:,-1:].shape)],axis=-1) # adds the speed component
 
         
         F_ext = np.zeros_like(pts_raw)
@@ -185,7 +190,7 @@ def apply_force(pts_raw,map_cost_f,att_points=[],locality_factor=1.0):
         self_dist = np.expand_dims(np.linalg.norm(self_diff,axis=1),-1)
         dir_self = np.divide(self_diff, self_dist, out=np.zeros_like(self_diff), where=self_dist!=0)
         F_self = self_dist*dir_self*w_self
-        F_self = np.concatenate([F_self,np.zeros(F_self[:,-1:].shape)],axis=-1) # add the speed component
+        F_self = np.concatenate([F_self,np.zeros(F_self[:,-1:].shape)],axis=-1) # adds the speed component
 
 
         delta = (F_ext + F_wp + F_self + F_ang)* mean_dist
@@ -208,9 +213,12 @@ MIN_NUM_OBJS = 2
 def find_obj_in_text(obj_names,text):
 
     obj = ""
-    for w in re.split("\s|(?<!\d)[,.](?!\d)",text):
-        if w in obj_names:
-            obj = w
+    # for w in re.split("\s|(?<!\d)[,.](?!\d)",text):
+    #     if w in obj_names:
+    #         obj = w
+    for o in obj_names:
+        if o in text:
+            return o
     return obj
 
 
@@ -244,7 +252,7 @@ class data_generator():
 
         return obj_names,obj_classes, obj_pt, objs_dict
     
-    def generate(self, maps = 32,labels_per_map=4, plot=False,N=100, n_int=10):
+    def generate(self, maps = 32,labels_per_map=4, plot=False,N=100, n_int=10, output_forces=False):
         """generates maps * labels_per_map samples"""
         data = []
 
@@ -263,7 +271,8 @@ class data_generator():
                     pts = generate_traj(n_wp = 40, N=N_,n_int=n_int_,show=False, margin=self.margin)
                     sample_done = False
                 except:
-                    print("map:",mi," - error generating the map")
+                    pass
+                    # print("map:",mi," - error generating the map")
 
             lg_ct = random.choices(list(self.change_types.keys()), weights=list(self.change_types.values()))
             lg.generate_labels(lg_ct, shuffle=True)
@@ -281,8 +290,45 @@ class data_generator():
                 # print("\nORIGINAL:", text)
                 locality_factor = np.random.random()*0.6+0.3
 
-                pts_new = apply_force(pts,map_cost_f_list,locality_factor=locality_factor)[0][0]
+                if output_forces:
+                    F_ext = np.zeros_like(pts)
+                    w = -0.02
+                    args = {"max_r":locality_factor}
+                    for func in map_cost_f_list:
+                        F_ext += func(pts,args)*w
+                    # pts_new = pts.copy()
+
+                pts_new = apply_force(pts,map_cost_f_list,locality_factor=locality_factor)[0][0] #modifies the trajectory acording to the forces
                 # print("AUGMENTED:")
+
+
+
+
+    # ==============================================TESTING ==================================
+                # spatial_dep= ["close to the ", "next to the ", "near the ", "nearby the ", "in the surrounding of the ", "in the proximity of the "]
+                # for t in spatial_dep:  
+                #     if t in text:
+                #         for o in obj_names:
+                #             if o in text:
+                #                 break
+                #         else:
+                #             print("-------------------------------")
+                #             print(text)
+                #             print(obj_names)
+                #             print(mi)
+                #             print(obj_classes)
+                # for o in obj_names:
+                #     if o in text:
+                #         break
+                # else:
+                #     print("-------------------------------")
+                #     print(text)
+                #     print(obj_names)
+                #     print(mi)
+                #     print(obj_classes)
+    # ============================================================================================
+
+
 
                 obj = find_obj_in_text(obj_names,text)
                 
@@ -310,7 +356,7 @@ class data_generator():
                 objs_img_base_paths = [self.images_base_path+c+"/"+n for c,n in zip(obj_classes,obj_names)]
                 obj_img_paths = [im_path+"/"+random.choice(os.listdir(im_path)) for im_path in objs_img_base_paths]
 
-                data.append({"input_traj":pts,
+                d = {"input_traj":pts,
                             "output_traj":pts_new,
                             "text":text,
                             "obj_names":obj_names,
@@ -321,7 +367,10 @@ class data_generator():
                             "map_id":mi,
                             "image_paths":obj_img_paths,
                             "locality_factor":locality_factor
-                            })
+                            }
+                if output_forces:
+                    d["forces"] = F_ext
+                data.append(d)
 
         return data
         # return x,y,texts,meta
