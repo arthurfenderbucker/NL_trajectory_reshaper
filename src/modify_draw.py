@@ -359,10 +359,14 @@ if load_models:
     model = load_model(model_file)
 
     compile(model)
+
 mr = Motion_refiner(load_models=load_models)
+
+print("done")
 
 di = Drawing_interface()
 di.set_text("stay further away from the glasses")
+print("done")
 
 bridge = CvBridge()
 live_image = args.live_image

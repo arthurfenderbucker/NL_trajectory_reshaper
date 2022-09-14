@@ -1,4 +1,7 @@
-from my_interfaces.msg import MoveEEToPoseActionGoal, DualQuaternion, MoveEEToPoseAction, MoveEEToPoseGoal
+try:
+    from my_interfaces.msg import MoveEEToPoseActionGoal, DualQuaternion, MoveEEToPoseAction, MoveEEToPoseGoal
+except:
+    pass
 from geometry_msgs.msg import Pose
 from dqrobotics import *
 import matplotlib.pyplot as plt
