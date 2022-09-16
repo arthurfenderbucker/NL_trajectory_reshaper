@@ -253,7 +253,7 @@ class Arrow3D(FancyArrowPatch):
 def show_data4D(d_,image_loader= None,pred=None, show=True,color_traj=True, obj_txt=False,arrows=True,file = "", cmap=None,
         n_col = 2, obj_c ="#363634", grid_c="#cfcfcf",ref_c = "#d10808", label_c = "#3082e6", pred_c = "#2dd100", delta_c = "#e3d64b",
         fig_mult=3,new_fig = True, n=3, abs_pred=False,  show_label=True, show_interpolated=False, show_original=True,
-        change_img_base=None, plot_forces=False,plot_output=True):
+        change_img_base=None, plot_forces=False,plot_output=True,labels=[]):
 
     # if isinstance(pred, np.ndarray) and len(pred.shape) > 2:
     #     print("reshaping")
@@ -323,7 +323,7 @@ def show_data4D(d_,image_loader= None,pred=None, show=True,color_traj=True, obj_
         if not image_loader is None:
             objs_images = [image_loader(im) for im in image_paths]
 
-        plot_samples(text,pts,new_pts_list, images=objs_images,objs=objs, color_traj =color_traj,forces=forces)
+        plot_samples(text,pts,new_pts_list, images=objs_images,objs=objs, color_traj =color_traj,forces=forces,labels=labels)
 
 
         # if color_traj:
@@ -349,7 +349,7 @@ def plot3Dcolor(x, y, z, c, ax=None, cmap=None, **args):
 
     
 
-def plot_samples(text,pts,pts_new_list, images=[], fig=None,objs=None, colors = ["#0071b3", "#1e0191"],alpha=[0.9,0.9],
+def plot_samples(text,pts,pts_new_list, images=[], fig=None,objs=None, colors = ["#0071b3", "#1e0191", "#369943"],alpha=[0.9,0.9],
                 plot_voxels= False, color_traj = False, map_cost_f=None, labels=[], plot_speed=True, show=True, forces=None):
     
     start_color = "red"
@@ -602,7 +602,7 @@ def compute_metrics(trajs_x, trajs_y, filter_nan=False):
     metrics = {"pcm":None,"dfd":None,"area":None,"cl":None,"dtw":None,"mae":None,"mse":None}
 
     metrics_h = np.zeros((trajs_x.shape[0],7))
-    for i,(exp_data, num_data) in enumerate(zip(trajs_x, trajs_y)):
+    for i,(exp_data, num_data) in tqdm(enumerate(zip(trajs_x, trajs_y))):
 
         pcm = 0# similaritymeasures.pcm(exp_data, num_data) # Partial Curve Mapping
         dfd = similaritymeasures.frechet_dist(exp_data, num_data) # Discrete Frechet distance

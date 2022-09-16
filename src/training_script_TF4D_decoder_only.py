@@ -208,9 +208,9 @@ test_dataset = tf.data.Dataset.from_tensor_slices((prepare_x(X_test),
                                                   X_test[:,embedding_indices])).batch(bs)
 print("test dataset created")
 
-num_batches = 0
-for (batch, (_,_,_)) in enumerate(train_dataset):
-    num_batches = batch
+num_batches = 423
+# for (batch, (_,_,_)) in enumerate(train_dataset):
+#     num_batches = batch
 
 val_batches = 0
 for (batch, (_,_,_)) in enumerate(val_dataset):
@@ -322,7 +322,7 @@ def evaluate_model(model, epoch):
     # print("Test loss w generation: ",result_gen)
 
     # print("computing metrics...")
-    metrics, metrics_h = compute_metrics(pred[:,:,:3],y_test_new[:,1:,:3])
+    metrics, metrics_h = compute_metrics(pred[:,:,:],y_test_new[:,1:,:])
 
     with file_writer.as_default():
         # tf.summary.scalar('test_result_gen', data=result_gen, step=epoch)
@@ -411,7 +411,7 @@ for lr,ep in lr_schedule:
     verbose = 0 if not args.test else 1
     history = model.fit(x = generator(train_dataset, augment = augment) ,epochs=initial_epoch+ep, steps_per_epoch = num_batches, verbose=verbose,
                         callbacks=[earlly_stop_cb, tensorboard_cb, checkpoint_cb, lrm, rlrp], initial_epoch=initial_epoch,
-                        validation_data = generator(val_dataset, augment = augment), validation_steps = val_batches, shuffle=False, use_multiprocessing=False)
+                        validation_data = generator(val_dataset, augment = False), validation_steps = val_batches, shuffle=False, use_multiprocessing=False)
     
     # history = model.fit(x = (x_train_new, y_train_new[:,:-1,:], emb_train_new), y = y_train_new[:,1:,:], epochs=initial_epoch+ep, initial_epoch=initial_epoch,
     #                          validation_data = ((x_valid_new, y_valid_new[:,:-1,:], emb_valid_new), y_valid_new[:,1:,:]),

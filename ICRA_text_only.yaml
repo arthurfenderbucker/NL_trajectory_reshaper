@@ -1,0 +1,74 @@
+description: ICRA Language Trajectory Transformer
+
+target:
+  service: aml
+  name: v100-1x-ded
+
+environment:
+  image: irosimg:latest
+  username: tumcr
+  registry: tumcr.azurecr.io
+  setup:
+    - pip install tensorboard --user
+    - pip install protobuf==3.20.* --user
+    - pip install azureml-core mlflow azureml-mlflow --user
+    - pip install similaritymeasures --user
+
+code:
+  local_dir: $CONFIG_DIR/src
+  storage_id: default
+
+storage:
+  data:
+    storage_account_name: tumdata
+    container_name: azureml-blobstore-b5a04f35-c8a9-4eac-94ba-5ae7d58a2dfb
+    mount_dir: /mnt/tumdata
+
+  output:
+    storage_account_name: tumdata
+    container_name: azureml-blobstore-b5a04f35-c8a9-4eac-94ba-5ae7d58a2dfb
+    mount_dir: /mnt/tumdata_out
+
+search:
+  job_template:
+    # you may use {random_string:s} to avoid job name collisions
+    # {auto:3s} generates lr_0.00000_mom_0.5, .. etc
+    # {auto:2s} generates lr_0.00000_mo_0.5, .. etc
+    name: icra_{experiment_name:s}_{auto:3s}
+    sku: G1
+    command:
+    - python training_script_TF4D_scale_factor.py --exp_name FINAL_text_only --dataset_dir '/mnt/tumdata/data/' --models_path '/mnt/tumdata_out/models/' 
+                                      --sf {ds_size_factor} --dataset_name {dataset} --clip_only 1
+                                      --epochs {epochs} --model_depth {model_depth} --lr {lr} --num_dec {num_dec} --num_enc {num_enc}
+    # - python training_script_TF_continuos.py --exp_name 'no_feature' --dataset_dir '/mnt/tumdata/data/' --models_path '/mnt/tumdata/models/' --concat_emb {concat_emb} --dense_n {dense_n} --num_dense {num_dense} --dff {dff} --num_enc {num_enc} --num_dec {num_dec}
+            # --bs {bs} --num_heads {num_heads}
+                # --epochs {epochs} --lr {lr} --num_enc {num_enc} --num_dec {num_dec} --num_heads {num_heads} --model_depth {model_depth} --dropout {dropout} --dff {dff}'
+    submit_args:
+      container_args:
+        shm_size: 100g
+  type: grid
+  max_trials: 1
+  params:
+    - name: dataset
+      values: ["latte_100k_lf_textonly"]
+    - name: lr
+      values: [1e-4]
+    - name: epochs
+      values: [500]
+    - name: num_enc
+      values: [1]
+    - name: num_dec
+      values: [5]
+    - name: model_depth
+      values: [400]
+    - name: ds_size_factor
+      values: [1.0]
+    
+      
+    # - name: epochs
+    #   values: []
+        
+    # - name: model_depth
+    #   values: []
+    # - name: dropout
+    #   values: []

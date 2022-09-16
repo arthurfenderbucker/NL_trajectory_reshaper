@@ -63,6 +63,7 @@ parser.add_argument('--clip_only', type=bool, default=False)
 args = parser.parse_args()
 
 
+
 if args.test:
     print("-------------------------------------------")
     print("--    testing training precedure mode    --")
@@ -80,8 +81,7 @@ delimiter ="-"
 traj_n = 40
 mr = Motion_refiner(load_models=False ,traj_n = traj_n, clip_only=args.clip_only)
 feature_indices, obj_sim_indices, obj_poses_indices, traj_indices = mr.get_indices()
-embedding_indices = np.concatenate([feature_indices,obj_sim_indices, obj_poses_indices])
-
+embedding_indices = mr.embedding_indices
 
 # dataset_name = "4D_10000_objs_2to6_norm_"
 # dataset_name = "4D_80000"
@@ -291,6 +291,15 @@ if not os.path.exists(models_path):
     os.makedirs(models_path)
 
 
+print(logdir + "/metrics")
+
+logdir = os.path.join(models_path,"logs",model_name, datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+
+
+# f = open(models_path+"test.txt", "w")
+# f.write("Now the file has more content!")
+# f.close()
+print("TF version: ",tf.__version__)
 
 file_writer = tf.summary.create_file_writer(logdir + "/metrics")
 
@@ -319,7 +328,7 @@ def evaluate_model(model, epoch):
     print("Test loss w generation: ",result_gen)
 
     print("computing metrics...")
-    metrics, metrics_h = compute_metrics(y_t.numpy()[:,:,:3],pred[:,1:,:3])
+    metrics, metrics_h = compute_metrics(y_t.numpy()[:,:,:],pred[:,1:,:])
 
     with file_writer.as_default():
         tf.summary.scalar('test_result_gen', data=result_gen, step=epoch)
@@ -408,7 +417,7 @@ for lr,ep in lr_schedule:
     verbose = 0 if not args.test else 1
     history = model.fit(x = generator(train_dataset, augment = augment) ,epochs=initial_epoch+ep, steps_per_epoch = num_batches, verbose=verbose,
                         callbacks=[earlly_stop_cb, tensorboard_cb, checkpoint_cb, lrm, rlrp], initial_epoch=initial_epoch,
-                        validation_data = generator(val_dataset, augment = augment), validation_steps = val_batches, shuffle=False, use_multiprocessing=False)
+                        validation_data = generator(val_dataset, augment = False), validation_steps = val_batches, shuffle=False, use_multiprocessing=False)
     
     # history = model.fit(x = (x_train_new, y_train_new[:,:-1,:], emb_train_new), y = y_train_new[:,1:,:], epochs=initial_epoch+ep, initial_epoch=initial_epoch,
     #                          validation_data = ((x_valid_new, y_valid_new[:,:-1,:], emb_valid_new), y_valid_new[:,1:,:]),

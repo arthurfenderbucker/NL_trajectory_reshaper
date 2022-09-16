@@ -29,8 +29,8 @@ parser.add_argument('--prefix', default='0')
 parser.add_argument('--labels_per_map',type=int, default=1)
 parser.add_argument('--n_map',type=int, default=5000)
 parser.add_argument('--threads',type=int, default=2)
-parser.add_argument('--clip_only', type=bool, default=False)
-parser.add_argument('--forces_only', type=bool, default=False)
+parser.add_argument('--clip_only', type=int, default=0)
+parser.add_argument('--forces_only', type=int, default=0)
 
 
 
@@ -115,7 +115,7 @@ if os.path.exists(exp_folder+"data_raw"+dataset_name+".json"):
     data = mr.load_data(data_name=folder+"data_raw"+dataset_name,base_path=data_folder)
     print("data len: ",len(data))
 
-    n=10
+    n=20
     for i in range(n):
         folder_and_prefix = folder+str(i)
         print(folder_and_prefix)
