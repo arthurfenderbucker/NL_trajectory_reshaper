@@ -29,8 +29,9 @@ parser.add_argument('--prefix', default='0')
 parser.add_argument('--labels_per_map',type=int, default=1)
 parser.add_argument('--n_map',type=int, default=5000)
 parser.add_argument('--threads',type=int, default=2)
-parser.add_argument('--clip_only', type=bool, default=False)
-parser.add_argument('--forces_only', type=bool, default=False)
+parser.add_argument('--clip_only', type=int, default=0)
+parser.add_argument('--text_only', type=int, default=0)
+parser.add_argument('--forces_only', type=int, default=0)
 
 
 
@@ -38,8 +39,12 @@ args = parser.parse_args()
 
 forces_only = True if args.forces_only == 1 else False
 clip_only = True if args.clip_only == 1 else False
+text_only = True if args.text_only == 1 else False
+
 print("forces_only: ",forces_only)
 print("clip_only: ",clip_only)
+print("text_only: ",text_only)
+
 
 
 traj_n = args.traj_n
@@ -48,6 +53,7 @@ mr = Motion_refiner(traj_n = traj_n, clip_only=clip_only, locality_factor=True, 
 
 dataset_name = args.dataset_name
 images_base_path=args.image_dataset_dir
+
 
 obj_lib_file= images_base_path+"imagenet1000_clsidx_to_labels.txt"
 
@@ -64,7 +70,7 @@ if not os.path.exists(exp_folder):
 ## ------- processed data -------
 def generate_XY(data,folder_and_prefix,i=""):
     # try:
-    X,Y = mr.prepare_data(data,deltas=False, change_img_base=['/home/arthur/image_dataset/','/home/arthur/data/image_dataset//'],output_forces=forces_only)
+    X,Y = mr.prepare_data(data,deltas=False, change_img_base=['/home/arthur/image_dataset/','/home/arthur/data/image_dataset//'],output_forces=forces_only, text_only= text_only)
     print(i,"X: ",X.shape)
     print(i,"Y: ",Y.shape)
     print(i,"DONE computing embeddings")

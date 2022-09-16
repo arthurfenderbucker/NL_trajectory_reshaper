@@ -46,7 +46,7 @@ parser.add_argument('--img_file', type=str, default=pkg_path+"/docs/media/top_vi
 parser.add_argument('--original_traj', type=str, default=pkg_path+"/original_traj.npy")
 
 parser.add_argument('--model_path', type=str, default=pkg_path+"/models/")
-parser.add_argument('--model_name', type=str, default="refined_refined_TF&num_layers_enc:2&num_layers_dec:4&d_model:256&dff:512&num_heads:8&dropout_rate:0.1&wp_d:2&bs:64&dense_n:512&num_dense:3&concat_emb:True&features_n:777&optimizer:RMSprop&norm_layer:True&activation:tanh.h5")
+parser.add_argument('--model_name', type=str, default="refined_TF&num_layers_enc:2&num_layers_dec:4&d_model:256&dff:512&num_heads:8&dropout_rate:0.1&wp_d:2&bs:64&dense_n:512&num_dense:3&concat_emb:True&features_n:777&optimizer:RMSprop&norm_layer:True&activation:tanh.h5")
 
 
 parser.add_argument('--user_trajs_path', type=str, default=pkg_path+"/user_trajs/")
@@ -369,6 +369,7 @@ if load_models:
     model = load_model(model_file)
 
     compile(model)
+
 mr = Motion_refiner(load_models=load_models)
 
 di = Drawing_interface()

@@ -234,7 +234,7 @@ class Motion_refiner():
                 image_features = np.array([self.precomputed_img_emb[img_path] for img_path in images_path])
             else:
 
-                image_features = self.get_image_features(images_path, images=images)
+                image_features = self.get_image_features(images_path, imgs=images)
             image_features = image_features.astype(np.float32)
             image_features /=  np.linalg.norm(image_features, axis=-1, keepdims=True).astype(np.float32)
 
@@ -442,7 +442,7 @@ class Motion_refiner():
     def get_indices(self):
         return self.feature_indices, self.obj_sim_indices, self.obj_poses_indices, self.traj_indices
 
-    def prepare_data(self, data, deltas=False, label=True, interpolation="spline", verbose=1,change_img_base=None, images=None,output_forces=False):
+    def prepare_data(self, data, deltas=False, label=True, interpolation="spline", verbose=1,change_img_base=None, images=None,output_forces=False, text_only=False):
         """Preprocess dataset"""
 
         # compute embeddings and similarity
@@ -458,17 +458,20 @@ class Motion_refiner():
         print("DONE - computing textual embeddings", text_features.shape)
 
         for i, d in tqdm(enumerate(data)):
-            image_paths = d["image_paths"]
+            if not text_only:
+                image_paths = d["image_paths"]
 
-            # d["obj_names_features"], d["text_clip_features"], d["image_features"], d['similarity'] = self.compute_clip_similarity(
-            #     d["obj_names"], [d["text"]], images_path = image_paths)
-                        
-            if not change_img_base is None:
-                for ti in range(len(image_paths)):
-                    image_paths[ti] = image_paths[ti].replace(change_img_base[0], change_img_base[1]) 
-                #     print(image_paths[ti])
-                # print(change_img_base[0], change_img_base[1])
-
+                # d["obj_names_features"], d["text_clip_features"], d["image_features"], d['similarity'] = self.compute_clip_similarity(
+                #     d["obj_names"], [d["text"]], images_path = image_paths)
+                            
+                if not change_img_base is None:
+                    for ti in range(len(image_paths)):
+                        image_paths[ti] = image_paths[ti].replace(change_img_base[0], change_img_base[1]) 
+                    #     print(image_paths[ti])
+                    # print(change_img_base[0], change_img_base[1])
+            else:
+                image_paths = None
+                
             d['similarity'] = self.compute_clip_similarity(d["obj_names"], [d["text"]], images_path = image_paths, text_feature=clip_text_features[i,np.newaxis], images=images)
             # print(d["obj_names"])
             # print(d['similarity'])
