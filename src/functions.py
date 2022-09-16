@@ -1,4 +1,5 @@
 import random
+from tabnanny import verbose
 from matplotlib import projections
 from scipy import interpolate
 import numpy as np
@@ -417,6 +418,7 @@ def plot_samples(text,pts,pts_new_list, images=[], fig=None,objs=None, colors = 
 
     if not forces is None:
         for i, (pt, f) in enumerate(zip(pts, forces)):
+            
             s=10.0
             a = Arrow3D([pt[0], pt[0]+f[0]*s], [pt[1], pt[1]+f[1]*s], 
                     [pt[2], pt[2]+f[2]*s], mutation_scale=5, 
@@ -756,6 +758,16 @@ def tokenize(y, n_classes=1002):
     out = out*(n_classes-2)+1
     # out = np.concatenate([np.zeros([out.shape[0],1,2]),out,np.ones((out.shape[0],1,2))*(n_classes-1)],axis=1)
     return out.astype('int32')
+
+def generate_2D(model, source, traj_n=10):
+    """Performs inference over one batch of inputs using greedy decoding."""
+    traj, shifted_target, features = source
+    bs = tf.shape(traj)[0]
+    dec_input = traj[:, 3:4, :]  # tf.ones((bs, 1,2)) * init_dec_input
+    for i in range(traj_n - 1):
+        dec_out = model.predict([traj, dec_input, features], verbose=0)
+        dec_input = tf.concat([dec_input, dec_out[:, -1:, :]], axis=1)
+    return dec_input
 
 
 def generate(model, source, traj_n=10, start_index=6):

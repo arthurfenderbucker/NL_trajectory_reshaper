@@ -203,7 +203,7 @@ class Motion_refiner():
         """interpolates the traj for n waypoints"""
         if n is None:
             n = self.traj_n
-        print(traj.shape)        
+        # print(traj.shape)        
         xp, yp = traj[0,:], traj[1,:]
 
         #removes duplicated wp
@@ -263,14 +263,14 @@ class Motion_refiner():
             sim_mask = np.zeros([len(d['similarity'][0])])
             sim_mask[np.argmax(d['similarity'][0])] = 1
 
-            print("\n----------------------------------")
-            print(d["text"])
-            print(d["obj_names"])
-            print(d['similarity'])
-            print("poses: ", d["obj_poses"])
+            # print("\n----------------------------------")
+            # print(d["text"])
+            # print(d["obj_names"])
+            # print(d['similarity'])
+            # print("poses: ", d["obj_poses"])
 
-            print(sim_mask)
-            print("----------------------------------")
+            # print(sim_mask)
+            # print("----------------------------------")
 
             sim = np.array(d['similarity'][0])
             # sim = sim_mask
@@ -301,7 +301,7 @@ class Motion_refiner():
         traj_and_obj = self.prepare_x(X)
         emb = X[:, self.embedding_indices]
         source = [traj_and_obj, None, emb]
-        pred_new = generate(model, source).numpy()
+        pred_new = generate_2D(model, source).numpy()
         return pred_new, traj
 
     def evaluate_obj_matching(self, data):
