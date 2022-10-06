@@ -1,8 +1,16 @@
-> **IMPORTANT:** :exclamation:repo under maintenance:exclamation:
 
+### Updated version of this project is now located at:
+https://github.com/arthurfenderbucker/LaTTe-Language-Trajectory-TransformEr
+
+Main improvements:
+- Trajectory modifications in the 3D space + speed
+- Interactive modification in realtime with direct image input
+- Multi-platform evaluation
+
+---
+---
 # NL trajectory reshaper
-
-Reshaping Robot Trajectories Using Natural Language Commands: A Study of Multi-Modal Data Alignment Using Transformers
+IROS2022: Reshaping Robot Trajectories Using Natural Language Commands: A Study of Multi-Modal Data Alignment Using Transformers
 
 
 ![iterative NL interactions over a trajectory](./docs/media/interactions.gif)
