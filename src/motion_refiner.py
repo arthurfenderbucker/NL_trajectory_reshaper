@@ -113,7 +113,7 @@ class Motion_refiner():
         return model, preprocess
 
     def compute_clip_similarity(self, obj_names, text):
-        """computes the similarity vector between the embeded representation of a list of objects and a list of texts"""
+        """computes the similarity vector between the embedded representation of a list of objects and a list of texts"""
 
         token_obj_name = clip.tokenize([o for o in obj_names]).to(self.device)
         token_clip_text = clip.tokenize(text).to(self.device)
